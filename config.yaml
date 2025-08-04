@@ -1,0 +1,10 @@
+api:
+  base_url: "http://localhost:8080"
+  timeout: "30s"
+
+mcp:
+  port: 3000
+
+logging:
+  level: "info"
+  format: "json"
