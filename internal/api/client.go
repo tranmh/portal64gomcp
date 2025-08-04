@@ -36,8 +36,8 @@ func NewClient(baseURL string, timeout time.Duration, logger *logrus.Logger) *Cl
 	}
 }
 
-// buildURL constructs API URLs with query parameters
-func (c *Client) buildURL(endpoint string, params interface{}) string {
+// BuildURL constructs API URLs with query parameters
+func (c *Client) BuildURL(endpoint string, params interface{}) string {
 	u := c.baseURL + endpoint
 	
 	if params == nil {
@@ -100,8 +100,8 @@ func (c *Client) addDateRangeParams(values *url.Values, params DateRangeParams) 
 	c.addSearchParams(values, params.SearchParams)
 }
 
-// doRequest performs HTTP request with error handling
-func (c *Client) doRequest(ctx context.Context, method, url string) (*http.Response, error) {
+// DoRequest performs HTTP request with error handling
+func (c *Client) DoRequest(ctx context.Context, method, url string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -143,8 +143,8 @@ func (c *Client) handleErrorResponse(resp *http.Response) error {
 	return fmt.Errorf("API error %d: %v", resp.StatusCode, errorBody)
 }
 
-// decodeResponse decodes JSON response into provided interface
-func (c *Client) decodeResponse(resp *http.Response, v interface{}) error {
+// DecodeResponse decodes JSON response into provided interface
+func (c *Client) DecodeResponse(resp *http.Response, v interface{}) error {
 	defer resp.Body.Close()
 	
 	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
@@ -157,15 +157,15 @@ func (c *Client) decodeResponse(resp *http.Response, v interface{}) error {
 
 // Health checks API health status
 func (c *Client) Health(ctx context.Context) (*HealthResponse, error) {
-	url := c.buildURL("/api/v1/health", nil)
+	url := c.BuildURL("/api/v1/health", nil)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var health HealthResponse
-	if err := c.decodeResponse(resp, &health); err != nil {
+	if err := c.DecodeResponse(resp, &health); err != nil {
 		return nil, err
 	}
 
@@ -174,15 +174,15 @@ func (c *Client) Health(ctx context.Context) (*HealthResponse, error) {
 
 // CacheStats retrieves cache performance statistics
 func (c *Client) CacheStats(ctx context.Context) (*CacheStatsResponse, error) {
-	url := c.buildURL("/api/v1/admin/cache", nil)
+	url := c.BuildURL("/api/v1/admin/cache", nil)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var stats CacheStatsResponse
-	if err := c.decodeResponse(resp, &stats); err != nil {
+	if err := c.DecodeResponse(resp, &stats); err != nil {
 		return nil, err
 	}
 
@@ -190,15 +190,15 @@ func (c *Client) CacheStats(ctx context.Context) (*CacheStatsResponse, error) {
 }
 // SearchPlayers searches for players with filtering and pagination
 func (c *Client) SearchPlayers(ctx context.Context, params SearchParams) (*SearchResponse, error) {
-	url := c.buildURL("/api/v1/players", params)
+	url := c.BuildURL("/api/v1/players", params)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var searchResp SearchResponse
-	if err := c.decodeResponse(resp, &searchResp); err != nil {
+	if err := c.DecodeResponse(resp, &searchResp); err != nil {
 		return nil, err
 	}
 
@@ -220,15 +220,15 @@ func (c *Client) SearchPlayers(ctx context.Context, params SearchParams) (*Searc
 
 // GetPlayerProfile retrieves comprehensive player profile with rating history
 func (c *Client) GetPlayerProfile(ctx context.Context, playerID string) (*PlayerResponse, error) {
-	url := c.buildURL(fmt.Sprintf("/api/v1/players/%s", playerID), nil)
+	url := c.BuildURL(fmt.Sprintf("/api/v1/players/%s", playerID), nil)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var player PlayerResponse
-	if err := c.decodeResponse(resp, &player); err != nil {
+	if err := c.DecodeResponse(resp, &player); err != nil {
 		return nil, err
 	}
 
@@ -237,15 +237,15 @@ func (c *Client) GetPlayerProfile(ctx context.Context, playerID string) (*Player
 
 // GetPlayerRatingHistory retrieves player's DWZ rating evolution over time
 func (c *Client) GetPlayerRatingHistory(ctx context.Context, playerID string) ([]Evaluation, error) {
-	url := c.buildURL(fmt.Sprintf("/api/v1/players/%s/history", playerID), nil)
+	url := c.BuildURL(fmt.Sprintf("/api/v1/players/%s/history", playerID), nil)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var evaluations []Evaluation
-	if err := c.decodeResponse(resp, &evaluations); err != nil {
+	if err := c.DecodeResponse(resp, &evaluations); err != nil {
 		return nil, err
 	}
 
@@ -254,15 +254,15 @@ func (c *Client) GetPlayerRatingHistory(ctx context.Context, playerID string) ([
 
 // SearchClubs searches for clubs with filtering and pagination
 func (c *Client) SearchClubs(ctx context.Context, params SearchParams) (*SearchResponse, error) {
-	url := c.buildURL("/api/v1/clubs", params)
+	url := c.BuildURL("/api/v1/clubs", params)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var searchResp SearchResponse
-	if err := c.decodeResponse(resp, &searchResp); err != nil {
+	if err := c.DecodeResponse(resp, &searchResp); err != nil {
 		return nil, err
 	}
 
@@ -282,15 +282,15 @@ func (c *Client) SearchClubs(ctx context.Context, params SearchParams) (*SearchR
 }
 // GetClubProfile retrieves comprehensive club profile with members and statistics
 func (c *Client) GetClubProfile(ctx context.Context, clubID string) (*ClubProfileResponse, error) {
-	url := c.buildURL(fmt.Sprintf("/api/v1/clubs/%s/profile", clubID), nil)
+	url := c.BuildURL(fmt.Sprintf("/api/v1/clubs/%s/profile", clubID), nil)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var profile ClubProfileResponse
-	if err := c.decodeResponse(resp, &profile); err != nil {
+	if err := c.DecodeResponse(resp, &profile); err != nil {
 		return nil, err
 	}
 
@@ -299,15 +299,15 @@ func (c *Client) GetClubProfile(ctx context.Context, clubID string) (*ClubProfil
 
 // GetClubPlayers retrieves club members with search and filtering
 func (c *Client) GetClubPlayers(ctx context.Context, clubID string, params SearchParams) (*SearchResponse, error) {
-	url := c.buildURL(fmt.Sprintf("/api/v1/clubs/%s/players", clubID), params)
+	url := c.BuildURL(fmt.Sprintf("/api/v1/clubs/%s/players", clubID), params)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var searchResp SearchResponse
-	if err := c.decodeResponse(resp, &searchResp); err != nil {
+	if err := c.DecodeResponse(resp, &searchResp); err != nil {
 		return nil, err
 	}
 
@@ -328,15 +328,15 @@ func (c *Client) GetClubPlayers(ctx context.Context, clubID string, params Searc
 
 // GetClubStatistics retrieves club performance statistics and member analytics
 func (c *Client) GetClubStatistics(ctx context.Context, clubID string) (*ClubRatingStats, error) {
-	url := c.buildURL(fmt.Sprintf("/api/v1/clubs/%s/statistics", clubID), nil)
+	url := c.BuildURL(fmt.Sprintf("/api/v1/clubs/%s/statistics", clubID), nil)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var stats ClubRatingStats
-	if err := c.decodeResponse(resp, &stats); err != nil {
+	if err := c.DecodeResponse(resp, &stats); err != nil {
 		return nil, err
 	}
 
@@ -345,15 +345,15 @@ func (c *Client) GetClubStatistics(ctx context.Context, clubID string) (*ClubRat
 
 // SearchTournaments searches for tournaments with date and status filtering
 func (c *Client) SearchTournaments(ctx context.Context, params SearchParams) (*SearchResponse, error) {
-	url := c.buildURL("/api/v1/tournaments", params)
+	url := c.BuildURL("/api/v1/tournaments", params)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var searchResp SearchResponse
-	if err := c.decodeResponse(resp, &searchResp); err != nil {
+	if err := c.DecodeResponse(resp, &searchResp); err != nil {
 		return nil, err
 	}
 
@@ -373,15 +373,15 @@ func (c *Client) SearchTournaments(ctx context.Context, params SearchParams) (*S
 }
 // SearchTournamentsByDate searches tournaments by date range
 func (c *Client) SearchTournamentsByDate(ctx context.Context, params DateRangeParams) (*SearchResponse, error) {
-	url := c.buildURL("/api/v1/tournaments/search", params)
+	url := c.BuildURL("/api/v1/tournaments/search", params)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var searchResp SearchResponse
-	if err := c.decodeResponse(resp, &searchResp); err != nil {
+	if err := c.DecodeResponse(resp, &searchResp); err != nil {
 		return nil, err
 	}
 
@@ -394,15 +394,15 @@ func (c *Client) GetRecentTournaments(ctx context.Context, days, limit int) ([]T
 		"days":  strconv.Itoa(days),
 		"limit": strconv.Itoa(limit),
 	}
-	url := c.buildURL("/api/v1/tournaments/recent", params)
+	url := c.BuildURL("/api/v1/tournaments/recent", params)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var tournaments []TournamentResponse
-	if err := c.decodeResponse(resp, &tournaments); err != nil {
+	if err := c.DecodeResponse(resp, &tournaments); err != nil {
 		return nil, err
 	}
 
@@ -411,15 +411,15 @@ func (c *Client) GetRecentTournaments(ctx context.Context, days, limit int) ([]T
 
 // GetTournamentDetails retrieves detailed tournament information
 func (c *Client) GetTournamentDetails(ctx context.Context, tournamentID string) (*EnhancedTournamentResponse, error) {
-	url := c.buildURL(fmt.Sprintf("/api/v1/tournaments/%s", tournamentID), nil)
+	url := c.BuildURL(fmt.Sprintf("/api/v1/tournaments/%s", tournamentID), nil)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var tournament EnhancedTournamentResponse
-	if err := c.decodeResponse(resp, &tournament); err != nil {
+	if err := c.DecodeResponse(resp, &tournament); err != nil {
 		return nil, err
 	}
 
@@ -428,15 +428,15 @@ func (c *Client) GetTournamentDetails(ctx context.Context, tournamentID string) 
 
 // GetRegions retrieves available regions for address lookups
 func (c *Client) GetRegions(ctx context.Context) ([]RegionInfo, error) {
-	url := c.buildURL("/api/v1/addresses/regions", nil)
+	url := c.BuildURL("/api/v1/addresses/regions", nil)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var regions []RegionInfo
-	if err := c.decodeResponse(resp, &regions); err != nil {
+	if err := c.DecodeResponse(resp, &regions); err != nil {
 		return nil, err
 	}
 
@@ -450,15 +450,15 @@ func (c *Client) GetRegionAddresses(ctx context.Context, region, addressType str
 		params["type"] = addressType
 	}
 	
-	url := c.buildURL(fmt.Sprintf("/api/v1/addresses/%s", region), params)
+	url := c.BuildURL(fmt.Sprintf("/api/v1/addresses/%s", region), params)
 	
-	resp, err := c.doRequest(ctx, "GET", url)
+	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
 	var addresses []RegionAddressResponse
-	if err := c.decodeResponse(resp, &addresses); err != nil {
+	if err := c.DecodeResponse(resp, &addresses); err != nil {
 		return nil, err
 	}
 

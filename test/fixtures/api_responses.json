@@ -1,0 +1,165 @@
+{
+  "player": {
+    "id": "12345",
+    "name": "Max Mustermann",
+    "first_name": "Max",
+    "last_name": "Mustermann",
+    "title": "FM",
+    "dwz": 2150,
+    "dwz_index": 85,
+    "elo": 2180,
+    "club_id": "001",
+    "club_name": "Schachclub Berlin",
+    "gender": "M",
+    "birth_year": 1985,
+    "rating_history": [
+      {
+        "date": "2024-01-01",
+        "dwz": 2100,
+        "dwz_index": 90,
+        "tournament_count": 15
+      },
+      {
+        "date": "2024-06-01", 
+        "dwz": 2150,
+        "dwz_index": 85,
+        "tournament_count": 20
+      }
+    ]
+  },
+  "players_search": {
+    "results": [
+      {
+        "id": "12345",
+        "name": "Max Mustermann",
+        "first_name": "Max",
+        "last_name": "Mustermann",
+        "dwz": 2150,
+        "club_name": "Schachclub Berlin"
+      },
+      {
+        "id": "67890",
+        "name": "Anna Schmidt",
+        "first_name": "Anna", 
+        "last_name": "Schmidt",
+        "dwz": 1980,
+        "club_name": "SV Muster"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 20,
+      "total": 2,
+      "total_pages": 1
+    }
+  },
+  "club": {
+    "id": "001",
+    "name": "Schachclub Berlin",
+    "short_name": "SCB",
+    "address": {
+      "street": "Musterstraße 123",
+      "city": "Berlin",
+      "postal_code": "10115",
+      "country": "Deutschland"
+    },
+    "contact": {
+      "email": "info@schachclub-berlin.de",
+      "phone": "+49 30 12345678",
+      "website": "https://www.schachclub-berlin.de"
+    },
+    "founded": 1950,
+    "member_count": 85,
+    "active_players": 65,
+    "statistics": {
+      "average_dwz": 1650,
+      "top_players": 5,
+      "youth_players": 15
+    }
+  },
+  "clubs_search": {
+    "results": [
+      {
+        "id": "001",
+        "name": "Schachclub Berlin",
+        "short_name": "SCB",
+        "city": "Berlin",
+        "member_count": 85
+      },
+      {
+        "id": "002",
+        "name": "SV Muster",
+        "short_name": "SVM",
+        "city": "München",
+        "member_count": 42
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 20,
+      "total": 2,
+      "total_pages": 1
+    }
+  },
+  "tournament": {
+    "id": "T001",
+    "name": "Berliner Stadtmeisterschaft 2024",
+    "organizer": "Schachclub Berlin",
+    "start_date": "2024-03-15",
+    "end_date": "2024-03-17",
+    "location": {
+      "venue": "Rathaus Berlin",
+      "city": "Berlin",
+      "address": "Rathausstraße 15, 10178 Berlin"
+    },
+    "tournament_type": "Swiss",
+    "time_control": "90+30",
+    "rounds": 7,
+    "participants": 45,
+    "status": "completed",
+    "results": [
+      {
+        "rank": 1,
+        "player_id": "12345",
+        "player_name": "Max Mustermann",
+        "points": 6.0,
+        "performance": 2250
+      },
+      {
+        "rank": 2,
+        "player_id": "67890", 
+        "player_name": "Anna Schmidt",
+        "points": 5.5,
+        "performance": 2180
+      }
+    ]
+  },
+  "tournaments_search": {
+    "results": [
+      {
+        "id": "T001",
+        "name": "Berliner Stadtmeisterschaft 2024",
+        "start_date": "2024-03-15",
+        "end_date": "2024-03-17",
+        "city": "Berlin",
+        "participants": 45,
+        "status": "completed"
+      },
+      {
+        "id": "T002",
+        "name": "München Open 2024",
+        "start_date": "2024-04-20",
+        "end_date": "2024-04-21",
+        "city": "München", 
+        "participants": 28,
+        "status": "completed"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 20,
+      "total": 2,
+      "total_pages": 1
+    }
+  }
+}

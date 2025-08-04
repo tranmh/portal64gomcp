@@ -32,15 +32,44 @@ clean:
 
 # Run tests
 test:
-	@echo "Running tests..."
+	@echo "Running all tests..."
 	go test -v -race -coverprofile=coverage.out ./...
 	@echo "Tests complete"
+
+# Run unit tests only
+test-unit:
+	@echo "Running unit tests..."
+	go test -v -race -short ./internal/... ./pkg/...
+	@echo "Unit tests complete"
+
+# Run integration tests only
+test-integration:
+	@echo "Running integration tests..."
+	go test -v -race ./test/integration/...
+	@echo "Integration tests complete"
 
 # Run tests with coverage report
 test-coverage: test
 	@echo "Generating coverage report..."
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
+
+# Run tests with coverage threshold check
+test-coverage-threshold: test-coverage
+	@echo "Checking coverage threshold..."
+	@go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//' | awk '{if ($$1 < 85) {print "Coverage " $$1 "% is below threshold of 85%"; exit 1} else {print "Coverage " $$1 "% meets threshold"}}'
+
+# Run benchmarks
+test-bench:
+	@echo "Running benchmarks..."
+	go test -bench=. -benchmem ./...
+	@echo "Benchmarks complete"
+
+# Run tests with race detection
+test-race:
+	@echo "Running tests with race detection..."
+	go test -race ./...
+	@echo "Race detection tests complete"
 
 # Run the application
 run: build
@@ -136,8 +165,13 @@ help:
 	@echo "  build-prod     - Build for production with optimizations"
 	@echo "  build-all      - Cross-compile for multiple platforms"
 	@echo "  clean          - Clean build artifacts"
-	@echo "  test           - Run tests"
+	@echo "  test           - Run all tests"
+	@echo "  test-unit      - Run unit tests only"
+	@echo "  test-integration - Run integration tests only"
 	@echo "  test-coverage  - Run tests with coverage report"
+	@echo "  test-coverage-threshold - Check coverage meets 85% threshold"
+	@echo "  test-bench     - Run benchmarks"
+	@echo "  test-race      - Run tests with race detection"
 	@echo "  run            - Build and run the application"
 	@echo "  run-debug      - Run with debug logging"
 	@echo "  run-config     - Run with config file"

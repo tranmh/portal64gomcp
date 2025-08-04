@@ -66,7 +66,16 @@ func (c *clientImpl) SearchPlayers(ctx context.Context, params SearchParams) (*S
 		return nil, err
 	}
 	
-	return (*SearchResponse)(result), nil
+	return &SearchResponse{
+		Data: result.Data,
+		Pagination: PaginationMetadata{
+			Total:  result.Pagination.Total,
+			Limit:  result.Pagination.Limit,
+			Offset: result.Pagination.Offset,
+			Pages:  result.Pagination.Pages,
+			Page:   result.Pagination.Page,
+		},
+	}, nil
 }
 
 func (c *clientImpl) GetPlayerProfile(ctx context.Context, playerID string) (*PlayerResponse, error) {
@@ -110,7 +119,16 @@ func (c *clientImpl) SearchClubs(ctx context.Context, params SearchParams) (*Sea
 		return nil, err
 	}
 	
-	return (*SearchResponse)(result), nil
+	return &SearchResponse{
+		Data: result.Data,
+		Pagination: PaginationMetadata{
+			Total:  result.Pagination.Total,
+			Limit:  result.Pagination.Limit,
+			Offset: result.Pagination.Offset,
+			Pages:  result.Pagination.Pages,
+			Page:   result.Pagination.Page,
+		},
+	}, nil
 }
 
 func (c *clientImpl) GetClubProfile(ctx context.Context, clubID string) (*ClubProfileResponse, error) {
@@ -119,7 +137,7 @@ func (c *clientImpl) GetClubProfile(ctx context.Context, clubID string) (*ClubPr
 		return nil, err
 	}
 	
-	return (*ClubProfileResponse)(result), nil
+	return convertClubProfileResponse(result), nil
 }
 
 func (c *clientImpl) GetClubPlayers(ctx context.Context, clubID string, params SearchParams) (*SearchResponse, error) {
@@ -139,7 +157,16 @@ func (c *clientImpl) GetClubPlayers(ctx context.Context, clubID string, params S
 		return nil, err
 	}
 	
-	return (*SearchResponse)(result), nil
+	return &SearchResponse{
+		Data: result.Data,
+		Pagination: PaginationMetadata{
+			Total:  result.Pagination.Total,
+			Limit:  result.Pagination.Limit,
+			Offset: result.Pagination.Offset,
+			Pages:  result.Pagination.Pages,
+			Page:   result.Pagination.Page,
+		},
+	}, nil
 }
 
 func (c *clientImpl) GetClubStatistics(ctx context.Context, clubID string) (*ClubRatingStats, error) {
@@ -148,7 +175,13 @@ func (c *clientImpl) GetClubStatistics(ctx context.Context, clubID string) (*Clu
 		return nil, err
 	}
 	
-	return (*ClubRatingStats)(result), nil
+	return &ClubRatingStats{
+		AverageRating:      result.AverageRating,
+		MedianRating:       result.MedianRating,
+		HighestRating:      result.HighestRating,
+		LowestRating:       result.LowestRating,
+		RatingDistribution: result.RatingDistribution,
+	}, nil
 }
 // Tournament operations
 func (c *clientImpl) SearchTournaments(ctx context.Context, params SearchParams) (*SearchResponse, error) {
@@ -168,7 +201,16 @@ func (c *clientImpl) SearchTournaments(ctx context.Context, params SearchParams)
 		return nil, err
 	}
 	
-	return (*SearchResponse)(result), nil
+	return &SearchResponse{
+		Data: result.Data,
+		Pagination: PaginationMetadata{
+			Total:  result.Pagination.Total,
+			Limit:  result.Pagination.Limit,
+			Offset: result.Pagination.Offset,
+			Pages:  result.Pagination.Pages,
+			Page:   result.Pagination.Page,
+		},
+	}, nil
 }
 
 func (c *clientImpl) SearchTournamentsByDate(ctx context.Context, params DateRangeParams) (*SearchResponse, error) {
@@ -192,7 +234,16 @@ func (c *clientImpl) SearchTournamentsByDate(ctx context.Context, params DateRan
 		return nil, err
 	}
 	
-	return (*SearchResponse)(result), nil
+	return &SearchResponse{
+		Data: result.Data,
+		Pagination: PaginationMetadata{
+			Total:  result.Pagination.Total,
+			Limit:  result.Pagination.Limit,
+			Offset: result.Pagination.Offset,
+			Pages:  result.Pagination.Pages,
+			Page:   result.Pagination.Page,
+		},
+	}, nil
 }
 
 func (c *clientImpl) GetRecentTournaments(ctx context.Context, days, limit int) ([]TournamentResponse, error) {
@@ -215,7 +266,7 @@ func (c *clientImpl) GetTournamentDetails(ctx context.Context, tournamentID stri
 		return nil, err
 	}
 	
-	return (*EnhancedTournamentResponse)(result), nil
+	return convertEnhancedTournamentResponse(result), nil
 }
 
 // Regional operations
@@ -254,7 +305,7 @@ func (c *clientImpl) Health(ctx context.Context) (*HealthResponse, error) {
 		return nil, err
 	}
 	
-	return (*HealthResponse)(result), nil
+	return convertHealthResponse(result), nil
 }
 
 func (c *clientImpl) CacheStats(ctx context.Context) (*CacheStatsResponse, error) {
@@ -263,5 +314,295 @@ func (c *clientImpl) CacheStats(ctx context.Context) (*CacheStatsResponse, error
 		return nil, err
 	}
 	
-	return (*CacheStatsResponse)(result), nil
+	return convertCacheStatsResponse(result), nil
+}
+
+
+// Helper functions to convert between internal API types and public types
+
+func convertClubProfileResponse(result *api.ClubProfileResponse) *ClubProfileResponse {
+	if result == nil {
+		return nil
+	}
+	
+	response := &ClubProfileResponse{
+		Club: convertClubResponse(result.Club),
+		Contact: convertClubContact(result.Contact),
+		RatingStats: convertClubRatingStats(result.RatingStats),
+		PlayerCount: result.PlayerCount,
+		ActivePlayerCount: result.ActivePlayerCount,
+		TournamentCount: result.TournamentCount,
+	}
+	
+	// Convert players slice
+	if result.Players != nil {
+		response.Players = make([]PlayerResponse, len(result.Players))
+		for i, player := range result.Players {
+			response.Players[i] = convertPlayerResponse(&player)
+		}
+	}
+	
+	// Convert teams slice
+	if result.Teams != nil {
+		response.Teams = make([]ClubTeam, len(result.Teams))
+		for i, team := range result.Teams {
+			response.Teams[i] = convertClubTeam(&team)
+		}
+	}
+	
+	// Convert recent tournaments slice
+	if result.RecentTournaments != nil {
+		response.RecentTournaments = make([]TournamentResponse, len(result.RecentTournaments))
+		for i, tournament := range result.RecentTournaments {
+			response.RecentTournaments[i] = convertTournamentResponse(&tournament)
+		}
+	}
+	
+	return response
+}
+
+func convertClubResponse(result *api.ClubResponse) *ClubResponse {
+	if result == nil {
+		return nil
+	}
+	return &ClubResponse{
+		ID: result.ID,
+		Name: result.Name,
+		ShortName: result.ShortName,
+		Association: result.Association,
+		Region: result.Region,
+		City: result.City,
+		State: result.State,
+		Country: result.Country,
+		FoundingYear: result.FoundingYear,
+		MemberCount: result.MemberCount,
+		ActiveCount: result.ActiveCount,
+		Status: result.Status,
+	}
+}
+
+func convertPlayerResponse(result *api.PlayerResponse) PlayerResponse {
+	return PlayerResponse{
+		ID: result.ID,
+		Name: result.Name,
+		Firstname: result.Firstname,
+		ClubID: result.ClubID,
+		Club: result.Club,
+		CurrentDWZ: result.CurrentDWZ,
+		DWZIndex: result.DWZIndex,
+		BirthYear: result.BirthYear,
+		Gender: result.Gender,
+		Nation: result.Nation,
+		Status: result.Status,
+		FideID: result.FideID,
+	}
+}
+
+func convertClubContact(result *api.ClubContact) *ClubContact {
+	if result == nil {
+		return nil
+	}
+	return &ClubContact{
+		President: result.President,
+		VicePresident: result.VicePresident,
+		Secretary: result.Secretary,
+		Treasurer: result.Treasurer,
+		Coach: result.Coach,
+		Email: result.Email,
+		Phone: result.Phone,
+		Website: result.Website,
+		Address: result.Address,
+	}
+}
+
+func convertClubTeam(result *api.ClubTeam) ClubTeam {
+	return ClubTeam{
+		ID: result.ID,
+		Name: result.Name,
+		League: result.League,
+		Division: result.Division,
+		Season: result.Season,
+	}
+}
+
+func convertClubRatingStats(result *api.ClubRatingStats) *ClubRatingStats {
+	if result == nil {
+		return nil
+	}
+	return &ClubRatingStats{
+		AverageRating: result.AverageRating,
+		MedianRating: result.MedianRating,
+		HighestRating: result.HighestRating,
+		LowestRating: result.LowestRating,
+		RatingDistribution: result.RatingDistribution,
+	}
+}
+
+func convertTournamentResponse(result *api.TournamentResponse) TournamentResponse {
+	return TournamentResponse{
+		ID: result.ID,
+		Name: result.Name,
+		Organizer: result.Organizer,
+		OrganizerClubID: result.OrganizerClubID,
+		StartDate: result.StartDate,
+		EndDate: result.EndDate,
+		Location: result.Location,
+		City: result.City,
+		State: result.State,
+		Country: result.Country,
+		TournamentType: result.TournamentType,
+		TimeControl: result.TimeControl,
+		Rounds: result.Rounds,
+		Participants: result.Participants,
+		Status: result.Status,
+		EvaluationStatus: result.EvaluationStatus,
+	}
+}
+
+func convertEnhancedTournamentResponse(result *api.EnhancedTournamentResponse) *EnhancedTournamentResponse {
+	if result == nil {
+		return nil
+	}
+	
+	response := &EnhancedTournamentResponse{
+		Tournament: convertTournamentResponsePtr(result.Tournament),
+		Statistics: convertTournamentStatistics(result.Statistics),
+	}
+	
+	// Convert participants slice
+	if result.Participants != nil {
+		response.Participants = make([]PlayerResponse, len(result.Participants))
+		for i, participant := range result.Participants {
+			response.Participants[i] = convertPlayerResponse(&participant)
+		}
+	}
+	
+	// Convert games slice
+	if result.Games != nil {
+		response.Games = make([]GameResult, len(result.Games))
+		for i, game := range result.Games {
+			response.Games[i] = convertGameResult(&game)
+		}
+	}
+	
+	// Convert evaluations slice
+	if result.Evaluations != nil {
+		response.Evaluations = make([]Evaluation, len(result.Evaluations))
+		for i, evaluation := range result.Evaluations {
+			response.Evaluations[i] = convertEvaluation(&evaluation)
+		}
+	}
+	
+	return response
+}
+
+func convertTournamentResponsePtr(result *api.TournamentResponse) *TournamentResponse {
+	if result == nil {
+		return nil
+	}
+	converted := convertTournamentResponse(result)
+	return &converted
+}
+
+func convertTournamentStatistics(result *api.TournamentStatistics) *TournamentStatistics {
+	if result == nil {
+		return nil
+	}
+	return &TournamentStatistics{
+		AverageRating: result.AverageRating,
+		RatingRange: RatingRange{
+			Min: result.RatingRange.Min,
+			Max: result.RatingRange.Max,
+		},
+		NationDistribution: result.NationDistribution,
+		AgeDistribution: result.AgeDistribution,
+		GenderDistribution: result.GenderDistribution,
+	}
+}
+
+func convertGameResult(result *api.GameResult) GameResult {
+	return GameResult{
+		ID: result.ID,
+		TournamentID: result.TournamentID,
+		Round: result.Round,
+		WhitePlayer: result.WhitePlayer,
+		BlackPlayer: result.BlackPlayer,
+		Result: result.Result,
+		Date: result.Date,
+		PGN: result.PGN,
+	}
+}
+
+func convertEvaluation(result *api.Evaluation) Evaluation {
+	return Evaluation{
+		ID: result.ID,
+		PlayerID: result.PlayerID,
+		TournamentID: result.TournamentID,
+		OldDWZ: result.OldDWZ,
+		NewDWZ: result.NewDWZ,
+		DWZChange: result.DWZChange,
+		Performance: result.Performance,
+		Games: result.Games,
+		Points: result.Points,
+		Date: result.Date,
+		Type: result.Type,
+	}
+}
+
+func convertHealthResponse(result *api.HealthResponse) *HealthResponse {
+	if result == nil {
+		return nil
+	}
+	
+	response := &HealthResponse{
+		Status: result.Status,
+		ResponseTime: result.ResponseTime,
+		APIVersion: result.APIVersion,
+		Timestamp: result.Timestamp,
+	}
+	
+	// Convert services map
+	if result.Services != nil {
+		response.Services = make(map[string]ServiceHealth)
+		for key, service := range result.Services {
+			response.Services[key] = ServiceHealth{
+				Status: service.Status,
+				ResponseTime: service.ResponseTime,
+				LastCheck: service.LastCheck,
+				ErrorMessage: service.ErrorMessage,
+			}
+		}
+	}
+	
+	return response
+}
+
+func convertCacheStatsResponse(result *api.CacheStatsResponse) *CacheStatsResponse {
+	if result == nil {
+		return nil
+	}
+	
+	return &CacheStatsResponse{
+		HitRatio: result.HitRatio,
+		Operations: CacheOperations{
+			Hits: result.Operations.Hits,
+			Misses: result.Operations.Misses,
+			Sets: result.Operations.Sets,
+			Deletes: result.Operations.Deletes,
+			Flushes: result.Operations.Flushes,
+		},
+		Performance: CachePerformance{
+			AverageGetTime: result.Performance.AverageGetTime,
+			AverageSetTime: result.Performance.AverageSetTime,
+			ConnectionTime: result.Performance.ConnectionTime,
+		},
+		Usage: CacheUsage{
+			UsedMemory: result.Usage.UsedMemory,
+			MaxMemory: result.Usage.MaxMemory,
+			MemoryPercent: result.Usage.MemoryPercent,
+			KeyCount: result.Usage.KeyCount,
+			ExpiredKeys: result.Usage.ExpiredKeys,
+		},
+		Timestamp: result.Timestamp,
+	}
 }
