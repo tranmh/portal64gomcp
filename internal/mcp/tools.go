@@ -35,8 +35,8 @@ func (s *Server) registerTools() {
 	s.tools["get_region_addresses"] = s.handleGetRegionAddresses
 }
 
-// getToolDefinition returns the schema definition for a tool
-func (s *Server) getToolDefinition(name string) Tool {
+// GetToolDefinition returns the schema definition for a tool
+func (s *Server) GetToolDefinition(name string) Tool {
 	definitions := map[string]Tool{
 		"search_players": {
 			Name:        "search_players",
@@ -117,6 +117,246 @@ func (s *Server) getToolDefinition(name string) Tool {
 						"description": "Value to filter by when filter_by is specified",
 					},
 				},
+			},
+		},
+		"get_player_profile": {
+			Name:        "get_player_profile",
+			Description: "Get comprehensive player profile with rating history",
+			InputSchema: ToolSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"player_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Player ID in format C0101-123",
+					},
+				},
+				Required: []string{"player_id"},
+			},
+		},
+		"get_player_rating_history": {
+			Name:        "get_player_rating_history",
+			Description: "Get comprehensive player rating history over time",
+			InputSchema: ToolSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"player_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Player ID in format C0101-123",
+					},
+				},
+				Required: []string{"player_id"},
+			},
+		},
+		"get_club_profile": {
+			Name:        "get_club_profile",
+			Description: "Get detailed club profile information",
+			InputSchema: ToolSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"club_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Club ID",
+					},
+				},
+				Required: []string{"club_id"},
+			},
+		},
+		"get_tournament_details": {
+			Name:        "get_tournament_details",
+			Description: "Get detailed tournament information",
+			InputSchema: ToolSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"tournament_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Tournament ID",
+					},
+				},
+				Required: []string{"tournament_id"},
+			},
+		},
+		"get_club_players": {
+			Name:        "get_club_players",
+			Description: "Get players belonging to a specific club",
+			InputSchema: ToolSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"club_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Club ID",
+					},
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "Search query for player name",
+					},
+					"limit": map[string]interface{}{
+						"type":        "integer",
+						"description": "Maximum number of results (default: 50)",
+						"minimum":     1,
+						"maximum":     200,
+					},
+					"offset": map[string]interface{}{
+						"type":        "integer",
+						"description": "Number of results to skip (default: 0)",
+						"minimum":     0,
+					},
+					"sort_by": map[string]interface{}{
+						"type":        "string",
+						"description": "Field to sort by",
+					},
+					"active": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Filter for active players only",
+					},
+				},
+				Required: []string{"club_id"},
+			},
+		},
+		"get_club_statistics": {
+			Name:        "get_club_statistics",
+			Description: "Get statistical information about a club",
+			InputSchema: ToolSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"club_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Club ID",
+					},
+				},
+				Required: []string{"club_id"},
+			},
+		},
+		"get_region_addresses": {
+			Name:        "get_region_addresses",
+			Description: "Get addresses for a specific region",
+			InputSchema: ToolSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"region": map[string]interface{}{
+						"type":        "string",
+						"description": "Region name",
+					},
+					"type": map[string]interface{}{
+						"type":        "string",
+						"description": "Address type filter",
+					},
+				},
+				Required: []string{"region"},
+			},
+		},
+		"search_tournaments": {
+			Name:        "search_tournaments",
+			Description: "Search for tournaments with filtering and pagination support",
+			InputSchema: ToolSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "Search query for tournament name",
+					},
+					"limit": map[string]interface{}{
+						"type":        "integer",
+						"description": "Maximum number of results (default: 50)",
+						"minimum":     1,
+						"maximum":     200,
+					},
+					"offset": map[string]interface{}{
+						"type":        "integer",
+						"description": "Number of results to skip (default: 0)",
+						"minimum":     0,
+					},
+					"sort_by": map[string]interface{}{
+						"type":        "string",
+						"description": "Field to sort by",
+					},
+					"sort_order": map[string]interface{}{
+						"type":        "string",
+						"description": "Sort order",
+						"enum":        []string{"asc", "desc"},
+					},
+					"filter_by": map[string]interface{}{
+						"type":        "string",
+						"description": "Field to filter by",
+					},
+					"filter_value": map[string]interface{}{
+						"type":        "string",
+						"description": "Value to filter by when filter_by is specified",
+					},
+				},
+			},
+		},
+		"get_recent_tournaments": {
+			Name:        "get_recent_tournaments",
+			Description: "Get recent tournaments within a specified timeframe",
+			InputSchema: ToolSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"days": map[string]interface{}{
+						"type":        "integer",
+						"description": "Number of days to look back (default: 30)",
+						"minimum":     1,
+					},
+					"limit": map[string]interface{}{
+						"type":        "integer",
+						"description": "Maximum number of results (default: 50)",
+						"minimum":     1,
+						"maximum":     200,
+					},
+				},
+			},
+		},
+		"search_tournaments_by_date": {
+			Name:        "search_tournaments_by_date",
+			Description: "Search for tournaments within a specific date range",
+			InputSchema: ToolSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"start_date": map[string]interface{}{
+						"type":        "string",
+						"description": "Start date in YYYY-MM-DD format",
+					},
+					"end_date": map[string]interface{}{
+						"type":        "string",
+						"description": "End date in YYYY-MM-DD format",
+					},
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "Search query for tournament name",
+					},
+					"limit": map[string]interface{}{
+						"type":        "integer",
+						"description": "Maximum number of results (default: 50)",
+						"minimum":     1,
+						"maximum":     200,
+					},
+					"offset": map[string]interface{}{
+						"type":        "integer",
+						"description": "Number of results to skip (default: 0)",
+						"minimum":     0,
+					},
+				},
+				Required: []string{"start_date", "end_date"},
+			},
+		},
+		"check_api_health": {
+			Name:        "check_api_health",
+			Description: "Check the health status of the API",
+			InputSchema: ToolSchema{
+				Type: "object",
+			},
+		},
+		"get_cache_stats": {
+			Name:        "get_cache_stats",
+			Description: "Get cache statistics and performance metrics",
+			InputSchema: ToolSchema{
+				Type: "object",
+			},
+		},
+		"get_regions": {
+			Name:        "get_regions",
+			Description: "Get list of all available regions",
+			InputSchema: ToolSchema{
+				Type: "object",
 			},
 		},
 	}

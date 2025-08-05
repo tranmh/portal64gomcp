@@ -4,11 +4,9 @@ api:
 
 mcp:
   port: 3000
-  #mode: "stdio"
-  #mode: "http"
-  mode: "both"
+  mode: "http"
   http_port: 8888
 
 logging:
   level: "info"
-  format: "json"
+  format: "text"

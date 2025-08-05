@@ -1,6 +1,40 @@
 package api
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
+
+// CustomDate handles date parsing for API responses that return dates in YYYY-MM-DD format
+type CustomDate struct {
+	time.Time
+}
+
+// UnmarshalJSON implements json.Unmarshaler for CustomDate
+func (cd *CustomDate) UnmarshalJSON(data []byte) error {
+	// Remove quotes from JSON string
+	dateStr := string(data[1 : len(data)-1])
+	
+	// Try parsing as date-only format first
+	if t, err := time.Parse("2006-01-02", dateStr); err == nil {
+		cd.Time = t
+		return nil
+	}
+	
+	// If that fails, try RFC3339 format
+	if t, err := time.Parse(time.RFC3339, dateStr); err == nil {
+		cd.Time = t
+		return nil
+	}
+	
+	// If both fail, try parsing as time.Time would normally
+	return cd.Time.UnmarshalJSON(data)
+}
+
+// MarshalJSON implements json.Marshaler for CustomDate
+func (cd CustomDate) MarshalJSON() ([]byte, error) {
+	return json.Marshal(cd.Time.Format("2006-01-02"))
+}
 
 // SearchResponse represents a paginated search response
 type SearchResponse struct {
@@ -94,22 +128,29 @@ type ClubRatingStats struct {
 
 // TournamentResponse represents a chess tournament
 type TournamentResponse struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	Organizer        string    `json:"organizer"`
-	OrganizerClubID  string    `json:"organizer_club_id"`
-	StartDate        time.Time `json:"start_date"`
-	EndDate          time.Time `json:"end_date"`
-	Location         string    `json:"location"`
-	City             string    `json:"city"`
-	State            string    `json:"state"`
-	Country          string    `json:"country"`
-	TournamentType   string    `json:"tournament_type"`
-	TimeControl      string    `json:"time_control"`
-	Rounds           int       `json:"rounds"`
-	Participants     int       `json:"participants"`
-	Status           string    `json:"status"`
-	EvaluationStatus string    `json:"evaluation_status"`
+	ID               string     `json:"id"`
+	Name             string     `json:"name"`
+	Code             string     `json:"code"`
+	Type             string     `json:"type"`
+	Organization     string     `json:"organization"`
+	Organizer        string     `json:"organizer"`         // Alternative field name
+	OrganizerClubID  string     `json:"organizer_club_id"` // Alternative field name  
+	Rounds           int        `json:"rounds"`
+	StartDate        *time.Time `json:"start_date"`        // Nullable in API
+	EndDate          *time.Time `json:"end_date"`          // Nullable in API
+	FinishedOn       time.Time  `json:"finished_on"`
+	ComputedOn       time.Time  `json:"computed_on"`
+	RecomputedOn     time.Time  `json:"recomputed_on"`
+	Status           string     `json:"status"`
+	Location         string     `json:"location"`
+	City             string     `json:"city"`
+	State            string     `json:"state"`
+	Country          string     `json:"country"`
+	TournamentType   string     `json:"tournament_type"`
+	TimeControl      string     `json:"time_control"`
+	Participants     int        `json:"participants"`
+	ParticipantCount int        `json:"participant_count"` // Alternative field name
+	EvaluationStatus string     `json:"evaluation_status"`
 }
 
 // EnhancedTournamentResponse represents detailed tournament information
@@ -168,6 +209,13 @@ type RegionInfo struct {
 	Name        string `json:"name"`
 	Country     string `json:"country"`
 	AddressTypes []string `json:"address_types"`
+}
+
+// RegionAPIResponse represents the actual region data from the API
+type RegionAPIResponse struct {
+	Code         string `json:"code"`
+	Name         string `json:"name"`
+	AddressCount int    `json:"address_count"`
 }
 
 // RegionAddressResponse represents regional addresses
@@ -253,4 +301,28 @@ type DateRangeParams struct {
 	StartDate time.Time `json:"start_date"`
 	EndDate   time.Time `json:"end_date"`
 	SearchParams
+}
+
+// APIResponse represents the standard API response wrapper
+type APIResponse struct {
+	Success bool `json:"success"`
+	Data    json.RawMessage `json:"data"`
+}
+
+// RatingHistoryEntry represents a single rating history entry from the API
+type RatingHistoryEntry struct {
+	ID           int     `json:"id"`
+	TournamentID string  `json:"tournament_id"`
+	IDPerson     int     `json:"id_person"`
+	ECoefficient int     `json:"e_coefficient"`
+	We           float64 `json:"we"`
+	Achievement  int     `json:"achievement"`
+	Level        int     `json:"level"`
+	Games        int     `json:"games"`
+	UnratedGames int     `json:"unrated_games"`
+	Points       float64 `json:"points"`
+	DWZOld       int     `json:"dwz_old"`
+	DWZOldIndex  int     `json:"dwz_old_index"`
+	DWZNew       int     `json:"dwz_new"`
+	DWZNewIndex  int     `json:"dwz_new_index"`
 }

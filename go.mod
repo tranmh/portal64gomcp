@@ -3,6 +3,7 @@ module github.com/svw-info/portal64gomcp
 go 1.21
 
 require (
+	github.com/gorilla/mux v1.8.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.8.4

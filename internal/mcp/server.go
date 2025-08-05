@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 	"github.com/svw-info/portal64gomcp/internal/api"
@@ -22,8 +24,11 @@ type Server struct {
 	tools      map[string]ToolHandler
 	resources  map[string]ResourceHandler
 	listener   net.Listener
+	httpServer *http.Server
+	bridge     *HTTPBridge
 	ctx        context.Context
 	cancel     context.CancelFunc
+	wg         sync.WaitGroup
 }
 
 // ToolHandler represents a function that handles tool calls
@@ -50,23 +55,57 @@ func NewServer(cfg *config.Config, logger *logrus.Logger, apiClient *api.Client)
 	server.registerTools()
 	server.registerResources()
 
+	// Initialize HTTP bridge
+	server.bridge = NewHTTPBridge(server, logger)
+
 	return server
 }
 
 // Start starts the MCP server
 func (s *Server) Start() error {
-	s.logger.Info("Starting MCP server on stdio")
-
-	// MCP servers typically use stdio for communication
-	return s.handleStdioConnection()
+	switch s.config.MCP.Mode {
+	case "stdio":
+		s.logger.Info("Starting MCP server on stdio")
+		return s.handleStdioConnection()
+	case "http":
+		s.logger.WithField("port", s.config.MCP.HTTPPort).Info("Starting MCP server on HTTP")
+		return s.startHTTPServer()
+	case "both":
+		s.logger.Info("Starting MCP server on both stdio and HTTP")
+		
+		// Start HTTP server in a goroutine
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			if err := s.startHTTPServer(); err != nil && err != http.ErrServerClosed {
+				s.logger.WithError(err).Error("HTTP server failed")
+			}
+		}()
+		
+		// Start stdio in main thread
+		err := s.handleStdioConnection()
+		
+		// Wait for HTTP server to finish
+		s.wg.Wait()
+		return err
+	default:
+		return fmt.Errorf("invalid server mode: %s", s.config.MCP.Mode)
+	}
 }
 
 // Stop stops the MCP server
 func (s *Server) Stop() {
 	s.logger.Info("Stopping MCP server")
 	s.cancel()
+	
 	if s.listener != nil {
 		s.listener.Close()
+	}
+	
+	if s.httpServer != nil {
+		if err := s.httpServer.Shutdown(context.Background()); err != nil {
+			s.logger.WithError(err).Error("Error shutting down HTTP server")
+		}
 	}
 }
 
@@ -196,7 +235,7 @@ func (s *Server) handleListTools(msg *Message) (*Message, error) {
 	
 	// Add all registered tools
 	for name := range s.tools {
-		tool := s.getToolDefinition(name)
+		tool := s.GetToolDefinition(name)
 		tools = append(tools, tool)
 	}
 
@@ -340,4 +379,18 @@ func (s *Server) parseParams(params interface{}, target interface{}) error {
 	}
 
 	return nil
+}
+
+// startHTTPServer starts the HTTP server
+func (s *Server) startHTTPServer() error {
+	router := s.bridge.SetupRoutes()
+	
+	addr := fmt.Sprintf(":%d", s.config.MCP.HTTPPort)
+	s.httpServer = &http.Server{
+		Addr:    addr,
+		Handler: router,
+	}
+	
+	s.logger.WithField("addr", addr).Info("Starting HTTP server")
+	return s.httpServer.ListenAndServe()
 }

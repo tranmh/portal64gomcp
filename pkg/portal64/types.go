@@ -103,6 +103,9 @@ type TournamentResponse struct {
 	OrganizerClubID  string    `json:"organizer_club_id"`
 	StartDate        time.Time `json:"start_date"`
 	EndDate          time.Time `json:"end_date"`
+	FinishedOn       time.Time `json:"finished_on"`
+	ComputedOn       time.Time `json:"computed_on"`
+	RecomputedOn     time.Time `json:"recomputed_on"`
 	Location         string    `json:"location"`
 	City             string    `json:"city"`
 	State            string    `json:"state"`

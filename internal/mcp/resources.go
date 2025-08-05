@@ -60,30 +60,30 @@ func (s *Server) handleClubResource(ctx context.Context, path string) (*ReadReso
 
 	clubID := parts[0]
 
-	// Check if this is a profile request
-	if len(parts) > 1 && parts[1] == "profile" {
-		profile, err := s.apiClient.GetClubProfile(ctx, clubID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get club profile: %w", err)
-		}
-
-		data, err := json.MarshalIndent(profile, "", "  ")
-		if err != nil {
-			return nil, fmt.Errorf("failed to serialize club profile data: %w", err)
-		}
-
-		return &ReadResourceResponse{
-			Contents: []ResourceContent{{
-				URI:      fmt.Sprintf("clubs://%s/profile", clubID),
-				MimeType: "application/json",
-				Text:     string(data),
-			}},
-		}, nil
+	// For basic club resource requests or profile requests, return club profile
+	profile, err := s.apiClient.GetClubProfile(ctx, clubID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get club profile: %w", err)
 	}
 
-	// Get basic club information (this would need to be implemented in the API client)
-	// For now, we'll return an error suggesting to use the profile endpoint
-	return nil, fmt.Errorf("basic club information not available, use clubs://%s/profile instead", clubID)
+	data, err := json.MarshalIndent(profile, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize club profile data: %w", err)
+	}
+
+	// Use the original URI format from the request
+	uri := fmt.Sprintf("clubs://%s", clubID)
+	if len(parts) > 1 && parts[1] == "profile" {
+		uri = fmt.Sprintf("clubs://%s/profile", clubID)
+	}
+
+	return &ReadResourceResponse{
+		Contents: []ResourceContent{{
+			URI:      uri,
+			MimeType: "application/json",
+			Text:     string(data),
+		}},
+	}, nil
 }
 
 // handleTournamentResource handles tournament resource requests

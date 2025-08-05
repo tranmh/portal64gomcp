@@ -157,7 +157,7 @@ func (c *Client) DecodeResponse(resp *http.Response, v interface{}) error {
 
 // Health checks API health status
 func (c *Client) Health(ctx context.Context) (*HealthResponse, error) {
-	url := c.BuildURL("/api/v1/health", nil)
+	url := c.BuildURL("/health", nil)
 	
 	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
@@ -227,26 +227,72 @@ func (c *Client) GetPlayerProfile(ctx context.Context, playerID string) (*Player
 		return nil, err
 	}
 
-	var player PlayerResponse
-	if err := c.DecodeResponse(resp, &player); err != nil {
+	// Parse the wrapped API response
+	var apiResp struct {
+		Success bool            `json:"success"`
+		Data    PlayerResponse  `json:"data"`
+	}
+	if err := c.DecodeResponse(resp, &apiResp); err != nil {
 		return nil, err
 	}
 
-	return &player, nil
+	if !apiResp.Success {
+		return nil, fmt.Errorf("API returned unsuccessful response")
+	}
+
+	return &apiResp.Data, nil
 }
 
 // GetPlayerRatingHistory retrieves player's DWZ rating evolution over time
 func (c *Client) GetPlayerRatingHistory(ctx context.Context, playerID string) ([]Evaluation, error) {
-	url := c.BuildURL(fmt.Sprintf("/api/v1/players/%s/history", playerID), nil)
+	url := c.BuildURL(fmt.Sprintf("/api/v1/players/%s/rating-history", playerID), nil)
 	
 	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
-	var evaluations []Evaluation
-	if err := c.DecodeResponse(resp, &evaluations); err != nil {
+	// Parse the wrapped API response
+	var apiResp APIResponse
+	if err := c.DecodeResponse(resp, &apiResp); err != nil {
 		return nil, err
+	}
+
+	// Parse the rating history entries from the data field
+	var entries []RatingHistoryEntry
+	if err := json.Unmarshal(apiResp.Data, &entries); err != nil {
+		return nil, err
+	}
+
+	// Convert to Evaluation format
+	evaluations := make([]Evaluation, len(entries))
+	for i, entry := range entries {
+		evaluation := Evaluation{
+			ID:           fmt.Sprintf("%d", entry.ID),
+			PlayerID:     playerID,
+			TournamentID: entry.TournamentID,
+			OldDWZ:       entry.DWZOld,
+			NewDWZ:       entry.DWZNew,
+			DWZChange:    entry.DWZNew - entry.DWZOld,
+			Performance:  entry.Achievement,
+			Games:        entry.Games,
+			Points:       entry.Points,
+			Type:         "tournament", // Default type
+		}
+
+		// If we have a tournament_id, try to get the tournament date
+		if entry.TournamentID != "" {
+			if tournamentDate, err := c.GetTournamentDate(ctx, entry.TournamentID); err == nil {
+				evaluation.Date = tournamentDate
+				c.logger.WithField("tournament_id", entry.TournamentID).
+					Debug("Successfully set tournament date for rating history entry")
+			} else {
+				c.logger.WithError(err).WithField("tournament_id", entry.TournamentID).
+					Warn("Failed to get tournament date for rating history entry")
+			}
+		}
+
+		evaluations[i] = evaluation
 	}
 
 	return evaluations, nil
@@ -282,7 +328,7 @@ func (c *Client) SearchClubs(ctx context.Context, params SearchParams) (*SearchR
 }
 // GetClubProfile retrieves comprehensive club profile with members and statistics
 func (c *Client) GetClubProfile(ctx context.Context, clubID string) (*ClubProfileResponse, error) {
-	url := c.BuildURL(fmt.Sprintf("/api/v1/clubs/%s/profile", clubID), nil)
+	url := c.BuildURL(fmt.Sprintf("/api/v1/clubs/%s", clubID), nil)
 	
 	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
@@ -409,6 +455,17 @@ func (c *Client) GetRecentTournaments(ctx context.Context, days, limit int) ([]T
 	return tournaments, nil
 }
 
+// SimpleTournament represents only the fields we need for date extraction
+type SimpleTournament struct {
+	ID           string     `json:"id"`
+	Name         string     `json:"name"`
+	StartDate    *time.Time `json:"start_date"`
+	EndDate      *time.Time `json:"end_date"`
+	FinishedOn   *time.Time `json:"finished_on"`
+	ComputedOn   *time.Time `json:"computed_on"`
+	RecomputedOn *time.Time `json:"recomputed_on"`
+}
+
 // GetTournamentDetails retrieves detailed tournament information
 func (c *Client) GetTournamentDetails(ctx context.Context, tournamentID string) (*EnhancedTournamentResponse, error) {
 	url := c.BuildURL(fmt.Sprintf("/api/v1/tournaments/%s", tournamentID), nil)
@@ -418,12 +475,40 @@ func (c *Client) GetTournamentDetails(ctx context.Context, tournamentID string) 
 		return nil, err
 	}
 
-	var tournament EnhancedTournamentResponse
-	if err := c.DecodeResponse(resp, &tournament); err != nil {
+	// Parse as wrapped API response (this is what the real API returns)
+	var apiResp APIResponse
+	if err := c.DecodeResponse(resp, &apiResp); err != nil {
 		return nil, err
 	}
 
-	return &tournament, nil
+	// Try to unmarshal the data as a simple tournament first (only date fields)
+	var simpleTournament SimpleTournament
+	if err := json.Unmarshal(apiResp.Data, &simpleTournament); err != nil {
+		return nil, err
+	}
+
+	// Convert to full TournamentResponse (copy the date fields we care about)
+	tournament := TournamentResponse{
+		ID: simpleTournament.ID,
+		Name: simpleTournament.Name,
+		StartDate: simpleTournament.StartDate,
+		EndDate: simpleTournament.EndDate,
+	}
+	
+	// Handle nullable time fields
+	if simpleTournament.FinishedOn != nil {
+		tournament.FinishedOn = *simpleTournament.FinishedOn
+	}
+	if simpleTournament.ComputedOn != nil {
+		tournament.ComputedOn = *simpleTournament.ComputedOn
+	}
+	if simpleTournament.RecomputedOn != nil {
+		tournament.RecomputedOn = *simpleTournament.RecomputedOn
+	}
+
+	return &EnhancedTournamentResponse{
+		Tournament: &tournament,
+	}, nil
 }
 
 // GetRegions retrieves available regions for address lookups
@@ -435,9 +520,27 @@ func (c *Client) GetRegions(ctx context.Context) ([]RegionInfo, error) {
 		return nil, err
 	}
 
-	var regions []RegionInfo
-	if err := c.DecodeResponse(resp, &regions); err != nil {
+	// Parse the wrapped API response
+	var apiResp APIResponse
+	if err := c.DecodeResponse(resp, &apiResp); err != nil {
 		return nil, err
+	}
+
+	// Parse the regions data from the data field
+	var regionAPIResponses []RegionAPIResponse
+	if err := json.Unmarshal(apiResp.Data, &regionAPIResponses); err != nil {
+		return nil, err
+	}
+
+	// Convert to RegionInfo format
+	regions := make([]RegionInfo, len(regionAPIResponses))
+	for i, apiRegion := range regionAPIResponses {
+		regions[i] = RegionInfo{
+			Code:         apiRegion.Code,
+			Name:         apiRegion.Name,
+			Country:      "DE", // Default to Germany since this is DWZ
+			AddressTypes: []string{"tournament", "club"}, // Default types
+		}
 	}
 
 	return regions, nil
@@ -463,4 +566,43 @@ func (c *Client) GetRegionAddresses(ctx context.Context, region, addressType str
 	}
 
 	return addresses, nil
+}
+
+// GetTournamentDate retrieves just the date from tournament details
+func (c *Client) GetTournamentDate(ctx context.Context, tournamentID string) (time.Time, error) {
+	url := c.BuildURL(fmt.Sprintf("/api/v1/tournaments/%s", tournamentID), nil)
+	
+	resp, err := c.DoRequest(ctx, "GET", url)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	// Parse as wrapped API response
+	var apiResp APIResponse
+	if err := c.DecodeResponse(resp, &apiResp); err != nil {
+		return time.Time{}, err
+	}
+
+	// Parse as generic map to extract date fields
+	var data map[string]interface{}
+	if err := json.Unmarshal(apiResp.Data, &data); err != nil {
+		return time.Time{}, err
+	}
+
+	// Try to extract dates in priority order
+	dateFields := []string{"finished_on", "computed_on", "recomputed_on", "end_date", "start_date"}
+	
+	for _, field := range dateFields {
+		if dateStr, exists := data[field]; exists && dateStr != nil {
+			if dateString, ok := dateStr.(string); ok && dateString != "" {
+				if date, err := time.Parse(time.RFC3339, dateString); err == nil {
+					c.logger.WithField("tournament_id", tournamentID).WithField("date_field", field).
+						Debug("Successfully extracted tournament date")
+					return date, nil
+				}
+			}
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("no valid date found for tournament %s", tournamentID)
 }

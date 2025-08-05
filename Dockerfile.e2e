@@ -1,0 +1,97 @@
+# Portal64 MCP E2E Test Environment
+# Multi-stage Dockerfile for building and testing the Portal64 MCP Server
+
+# Build stage
+FROM golang:1.21-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates curl
+
+# Set working directory
+WORKDIR /app
+
+# Copy Go modules files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download && go mod verify
+
+# Copy source code
+COPY . .
+
+# Build the Portal64 MCP Server
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o bin/portal64-mcp ./cmd/server
+
+# Test runner stage
+FROM golang:1.21-alpine AS test-runner
+
+# Install test dependencies
+RUN apk add --no-cache \
+    curl \
+    bash \
+    jq \
+    ca-certificates
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S testuser && \
+    adduser -u 1001 -S testuser -G testuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy source code and dependencies
+COPY --from=builder /app .
+
+# Copy built binary
+COPY --from=builder /app/bin/portal64-mcp ./bin/
+
+# Create test results directory
+RUN mkdir -p test-results && \
+    chown -R testuser:testuser /app
+
+# Switch to non-root user
+USER testuser
+
+# Expose server port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Default command runs the complete e2e test suite
+CMD ["./test/run_e2e_tests.sh"]
+
+# Production runtime stage
+FROM alpine:3.18 AS runtime
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates curl
+
+# Create non-root user
+RUN addgroup -g 1001 -S appuser && \
+    adduser -u 1001 -S appuser -G appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy built binary
+COPY --from=builder /app/bin/portal64-mcp .
+COPY --from=builder /app/config.yaml .
+
+# Create necessary directories
+RUN mkdir -p /app/data && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose server port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Run the server
+CMD ["./portal64-mcp", "--config", "config.yaml"]

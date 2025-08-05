@@ -1,0 +1,223 @@
+# Portal64 MCP Server E2E Test Environment
+# Docker Compose configuration for running comprehensive e2e tests
+
+version: '3.8'
+
+services:
+  # Portal64 MCP Server
+  portal64-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+      target: runtime
+    container_name: portal64-mcp-server
+    ports:
+      - "8888:8888"
+    environment:
+      - LOG_LEVEL=info
+      - SERVER_PORT=8888
+      - API_TIMEOUT=30s
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - server-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - portal64-network
+    restart: unless-stopped
+
+  # E2E Test Runner
+  e2e-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+      target: test-runner
+    container_name: portal64-e2e-tests
+    environment:
+      - BASE_URL=http://portal64-server:8888
+      - TEST_TIMEOUT=300s
+      - LOG_LEVEL=info
+    volumes:
+      - ./test-results:/app/test-results
+      - ./test:/app/test:ro
+    depends_on:
+      portal64-server:
+        condition: service_healthy
+    networks:
+      - portal64-network
+    command: |
+      bash -c "
+        echo 'Waiting for server to be fully ready...'
+        sleep 10
+        echo 'Starting E2E test suite...'
+        ./test/run_e2e_tests.sh
+      "
+
+  # E2E Test Runner - Specific Category
+  e2e-tests-category:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+      target: test-runner
+    container_name: portal64-e2e-tests-category
+    environment:
+      - BASE_URL=http://portal64-server:8888
+      - TEST_TIMEOUT=300s
+      - LOG_LEVEL=info
+      - TEST_CATEGORY=${TEST_CATEGORY:-search}
+    volumes:
+      - ./test-results:/app/test-results
+      - ./test:/app/test:ro
+    depends_on:
+      portal64-server:
+        condition: service_healthy
+    networks:
+      - portal64-network
+    command: |
+      bash -c "
+        echo 'Waiting for server to be fully ready...'
+        sleep 10
+        echo 'Starting E2E tests for category: ${TEST_CATEGORY:-search}'
+        ./test/run_e2e_tests.sh -c ${TEST_CATEGORY:-search}
+      "
+    profiles:
+      - category-tests
+
+  # Performance Test Runner
+  performance-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+      target: test-runner
+    container_name: portal64-performance-tests
+    environment:
+      - BASE_URL=http://portal64-server:8888
+      - TEST_TIMEOUT=600s
+      - LOG_LEVEL=info
+    volumes:
+      - ./test-results:/app/test-results
+      - ./test:/app/test:ro
+    depends_on:
+      portal64-server:
+        condition: service_healthy
+    networks:
+      - portal64-network
+    command: |
+      bash -c "
+        echo 'Waiting for server to be fully ready...'
+        sleep 10
+        echo 'Starting performance tests and benchmarks...'
+        ./test/run_e2e_tests.sh -c performance
+        echo 'Running benchmarks...'
+        ./test/run_e2e_tests.sh -b
+      "
+    profiles:
+      - performance
+
+  # Mock Data Server (for offline testing)
+  mock-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+      target: test-runner
+    container_name: portal64-mock-server
+    ports:
+      - "8081:8080"
+    environment:
+      - MOCK_MODE=true
+      - LOG_LEVEL=debug
+    volumes:
+      - ./test/fixtures:/app/fixtures:ro
+    networks:
+      - portal64-network
+    command: |
+      bash -c "
+        echo 'Starting mock server for offline testing...'
+        go run ./test/testutil/mock-server.go -port 8080 -fixtures ./test/fixtures
+      "
+    profiles:
+      - mock
+
+  # Database (if needed for integration tests)
+  test-database:
+    image: postgres:15-alpine
+    container_name: portal64-test-db
+    environment:
+      - POSTGRES_DB=portal64_test
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpass
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+    volumes:
+      - test-db-data:/var/lib/postgresql/data
+      - ./test/fixtures/test-data.sql:/docker-entrypoint-initdb.d/01-test-data.sql:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d portal64_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - portal64-network
+    profiles:
+      - with-db
+
+  # Test Results Viewer (simple HTTP server for viewing results)
+  results-viewer:
+    image: nginx:alpine
+    container_name: portal64-results-viewer
+    ports:
+      - "8082:80"
+    volumes:
+      - ./test-results:/usr/share/nginx/html:ro
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - portal64-network
+    profiles:
+      - viewer
+
+networks:
+  portal64-network:
+    driver: bridge
+    name: portal64-network
+
+volumes:
+  server-data:
+    name: portal64-server-data
+  test-db-data:
+    name: portal64-test-db-data
+
+# Development override for local testing
+---
+# docker-compose.dev.yml
+version: '3.8'
+
+services:
+  portal64-server:
+    build:
+      target: test-runner  # Use test-runner stage for development
+    volumes:
+      - .:/app:delegated  # Mount source code for live reloading
+      - /app/bin  # Exclude binary directory
+    environment:
+      - LOG_LEVEL=debug
+      - DEV_MODE=true
+    command: |
+      bash -c "
+        echo 'Development mode - rebuilding server...'
+        go build -o bin/portal64-mcp ./cmd/server
+        echo 'Starting server...'
+        ./bin/portal64-mcp --config config.yaml
+      "
+
+  e2e-tests:
+    volumes:
+      - .:/app:delegated  # Mount source code
+      - /app/test-results  # Exclude results directory to avoid conflicts
+    environment:
+      - LOG_LEVEL=debug
+      - DEV_MODE=true

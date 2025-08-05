@@ -22,7 +22,9 @@ type APIConfig struct {
 
 // MCPConfig holds MCP server configuration
 type MCPConfig struct {
-	Port int `mapstructure:"port"`
+	Port     int    `mapstructure:"port"`
+	Mode     string `mapstructure:"mode"`     // "stdio", "http", or "both"
+	HTTPPort int    `mapstructure:"http_port"`
 }
 
 // LoggerConfig holds logging configuration
@@ -47,6 +49,8 @@ func Load(configPath string) (*Config, error) {
 	viper.SetDefault("api.base_url", "http://localhost:8080")
 	viper.SetDefault("api.timeout", "30s")
 	viper.SetDefault("mcp.port", 3000)
+	viper.SetDefault("mcp.mode", "stdio")
+	viper.SetDefault("mcp.http_port", 8888)
 	viper.SetDefault("logging.level", "info")
 	viper.SetDefault("logging.format", "json")
 
@@ -55,6 +59,8 @@ func Load(configPath string) (*Config, error) {
 	viper.AutomaticEnv()
 	viper.BindEnv("api.base_url", "PORTAL64_API_URL")
 	viper.BindEnv("mcp.port", "MCP_SERVER_PORT")
+	viper.BindEnv("mcp.mode", "MCP_SERVER_MODE")
+	viper.BindEnv("mcp.http_port", "MCP_HTTP_PORT")
 	viper.BindEnv("logging.level", "LOG_LEVEL")
 	viper.BindEnv("api.timeout", "API_TIMEOUT")
 
@@ -81,6 +87,15 @@ func (c *Config) Validate() error {
 
 	if c.MCP.Port <= 0 || c.MCP.Port > 65535 {
 		return fmt.Errorf("mcp.port must be between 1 and 65535")
+	}
+
+	if c.MCP.HTTPPort <= 0 || c.MCP.HTTPPort > 65535 {
+		return fmt.Errorf("mcp.http_port must be between 1 and 65535")
+	}
+
+	validModes := map[string]bool{"stdio": true, "http": true, "both": true}
+	if !validModes[c.MCP.Mode] {
+		return fmt.Errorf("mcp.mode must be one of: stdio, http, both")
 	}
 
 	if c.API.Timeout <= 0 {

@@ -1,96 +1,148 @@
 {
   "player": {
-    "id": "12345",
-    "name": "Max Mustermann",
-    "first_name": "Max",
-    "last_name": "Mustermann",
+    "id": "C0327-297",
+    "name": "Minh Cuong Tran",
+    "first_name": "Minh Cuong",
+    "last_name": "Tran",
     "title": "FM",
     "dwz": 2150,
     "dwz_index": 85,
     "elo": 2180,
-    "club_id": "001",
-    "club_name": "Schachclub Berlin",
+    "club_id": "C0327",
+    "club_name": "SK Altbach 1920",
     "gender": "M",
     "birth_year": 1985,
+    "active": true,
     "rating_history": [
       {
-        "date": "2024-01-01",
+        "date": "2023-01-01",
         "dwz": 2100,
         "dwz_index": 90,
         "tournament_count": 15
       },
       {
-        "date": "2024-06-01", 
+        "date": "2023-06-01", 
+        "dwz": 2125,
+        "dwz_index": 87,
+        "tournament_count": 18
+      },
+      {
+        "date": "2024-01-01",
         "dwz": 2150,
         "dwz_index": 85,
-        "tournament_count": 20
+        "tournament_count": 22
+      }
+    ],
+    "tournament_history": [
+      {
+        "tournament_id": "C350-C01-SMU",
+        "tournament_name": "Ulm Open 2024",
+        "date": "2024-03-15",
+        "points": 6.5,
+        "games": 9,
+        "performance": 2200
       }
     ]
   },
   "players_search": {
     "results": [
       {
-        "id": "12345",
-        "name": "Max Mustermann",
-        "first_name": "Max",
-        "last_name": "Mustermann",
+        "id": "C0327-297",
+        "name": "Minh Cuong Tran",
+        "first_name": "Minh Cuong",
+        "last_name": "Tran",
         "dwz": 2150,
-        "club_name": "Schachclub Berlin"
+        "club_name": "SK Altbach 1920",
+        "active": true
       },
       {
-        "id": "67890",
-        "name": "Anna Schmidt",
-        "first_name": "Anna", 
-        "last_name": "Schmidt",
+        "id": "C0327-298",
+        "name": "Minh Cuong Nguyen",
+        "first_name": "Minh Cuong", 
+        "last_name": "Nguyen",
         "dwz": 1980,
-        "club_name": "SV Muster"
+        "club_name": "SK Altbach 1920",
+        "active": true
+      },
+      {
+        "id": "C0328-155",
+        "name": "Minh Cuong Le",
+        "first_name": "Minh Cuong",
+        "last_name": "Le",
+        "dwz": 2050,
+        "club_name": "SC Stuttgart-West",
+        "active": false
       }
     ],
     "pagination": {
       "page": 1,
       "per_page": 20,
-      "total": 2,
+      "total": 3,
       "total_pages": 1
     }
   },
   "club": {
-    "id": "001",
-    "name": "Schachclub Berlin",
-    "short_name": "SCB",
+    "id": "C0327",
+    "name": "SK Altbach 1920",
+    "short_name": "Altbach",
     "address": {
-      "street": "Musterstraße 123",
-      "city": "Berlin",
-      "postal_code": "10115",
+      "street": "Kirchgasse 15",
+      "city": "Altbach",
+      "postal_code": "73776",
+      "state": "Baden-Württemberg",
       "country": "Deutschland"
     },
     "contact": {
-      "email": "info@schachclub-berlin.de",
-      "phone": "+49 30 12345678",
-      "website": "https://www.schachclub-berlin.de"
+      "email": "info@sk-altbach.de",
+      "phone": "+49 7153 55789",
+      "website": "https://www.sk-altbach.de"
     },
-    "founded": 1950,
+    "founded": 1920,
     "member_count": 85,
     "active_players": 65,
     "statistics": {
-      "average_dwz": 1650,
-      "top_players": 5,
-      "youth_players": 15
-    }
+      "average_dwz": 1680,
+      "top_players": 8,
+      "youth_players": 12,
+      "senior_players": 25
+    },
+    "teams": [
+      {
+        "name": "1. Mannschaft",
+        "league": "Verbandsliga",
+        "division": "Württemberg"
+      },
+      {
+        "name": "2. Mannschaft", 
+        "league": "Bezirksklasse A",
+        "division": "Esslingen"
+      }
+    ],
+    "recent_tournaments": [
+      {
+        "tournament_id": "C350-C01-SMU",
+        "name": "Ulm Open 2024",
+        "date": "2024-03-15",
+        "participants_from_club": 5
+      }
+    ]
   },
   "clubs_search": {
     "results": [
       {
-        "id": "001",
-        "name": "Schachclub Berlin",
-        "short_name": "SCB",
-        "city": "Berlin",
+        "id": "C0327",
+        "name": "SK Altbach 1920",
+        "short_name": "Altbach",
+        "city": "Altbach",
+        "state": "Baden-Württemberg",
         "member_count": 85
       },
       {
-        "id": "002",
-        "name": "SV Muster",
-        "short_name": "SVM",
-        "city": "München",
+        "id": "C0328",
+        "name": "SV Altbach-Deizisau",
+        "short_name": "Altbach-Deizisau",
+        "city": "Altbach",
+        "state": "Baden-Württemberg", 
         "member_count": 42
       }
     ],
@@ -102,63 +154,285 @@
     }
   },
   "tournament": {
-    "id": "T001",
-    "name": "Berliner Stadtmeisterschaft 2024",
-    "organizer": "Schachclub Berlin",
+    "id": "C350-C01-SMU",
+    "name": "Ulm Open 2024",
+    "organizer": "Schachclub Ulm 1893",
     "start_date": "2024-03-15",
     "end_date": "2024-03-17",
     "location": {
-      "venue": "Rathaus Berlin",
-      "city": "Berlin",
-      "address": "Rathausstraße 15, 10178 Berlin"
+      "venue": "Stadthaus Ulm",
+      "city": "Ulm",
+      "address": "Münsterplatz 50, 89073 Ulm",
+      "state": "Baden-Württemberg"
     },
     "tournament_type": "Swiss",
     "time_control": "90+30",
-    "rounds": 7,
-    "participants": 45,
+    "rounds": 9,
+    "participants": 156,
     "status": "completed",
+    "prize_fund": "2500 EUR",
     "results": [
       {
         "rank": 1,
-        "player_id": "12345",
-        "player_name": "Max Mustermann",
-        "points": 6.0,
-        "performance": 2250
+        "player_id": "C0327-297",
+        "player_name": "Minh Cuong Tran",
+        "club": "SK Altbach 1920",
+        "points": 7.5,
+        "tie_break": 45.5,
+        "performance": 2350
       },
       {
         "rank": 2,
-        "player_id": "67890", 
-        "player_name": "Anna Schmidt",
-        "points": 5.5,
-        "performance": 2180
+        "player_id": "C0350-123", 
+        "player_name": "Anna Mueller",
+        "club": "SC Ulm 1893",
+        "points": 7.0,
+        "tie_break": 42.0,
+        "performance": 2280
+      },
+      {
+        "rank": 3,
+        "player_id": "C0351-045",
+        "player_name": "Thomas Weber",
+        "club": "SV Neu-Ulm",
+        "points": 7.0,
+        "tie_break": 41.5,
+        "performance": 2260
+      }
+    ],
+    "pairings": [
+      {
+        "round": 1,
+        "board": 1,
+        "white": "C0327-297",
+        "black": "C0350-088",
+        "result": "1-0"
+      },
+      {
+        "round": 1,
+        "board": 2,
+        "white": "C0350-123",
+        "black": "C0351-045", 
+        "result": "1/2-1/2"
       }
     ]
   },
   "tournaments_search": {
     "results": [
       {
-        "id": "T001",
-        "name": "Berliner Stadtmeisterschaft 2024",
+        "id": "C350-C01-SMU",
+        "name": "Ulm Open 2024",
         "start_date": "2024-03-15",
         "end_date": "2024-03-17",
-        "city": "Berlin",
-        "participants": 45,
+        "city": "Ulm",
+        "state": "Baden-Württemberg",
+        "participants": 156,
         "status": "completed"
       },
       {
-        "id": "T002",
-        "name": "München Open 2024",
-        "start_date": "2024-04-20",
-        "end_date": "2024-04-21",
-        "city": "München", 
-        "participants": 28,
+        "id": "C350-C02-ULM",
+        "name": "Ulmer Stadtmeisterschaft 2024",
+        "start_date": "2024-05-10",
+        "end_date": "2024-06-21",
+        "city": "Ulm",
+        "state": "Baden-Württemberg",
+        "participants": 48,
+        "status": "completed"
+      },
+      {
+        "id": "C350-C03-NEU",
+        "name": "Neu-Ulm Blitzturnier 2023",
+        "start_date": "2023-12-15",
+        "end_date": "2023-12-15",
+        "city": "Neu-Ulm",
+        "state": "Bayern", 
+        "participants": 32,
         "status": "completed"
       }
     ],
     "pagination": {
       "page": 1,
       "per_page": 20,
-      "total": 2,
+      "total": 3,
+      "total_pages": 1
+    }
+  },
+  "health_check": {
+    "status": "healthy",
+    "timestamp": "2024-08-05T12:00:00Z",
+    "api_connectivity": "ok",
+    "response_time_ms": 15,
+    "database_status": "connected",
+    "cache_status": "active"
+  },
+  "cache_stats": {
+    "hit_ratio": 0.85,
+    "miss_ratio": 0.15,
+    "total_requests": 1024,
+    "cache_hits": 870,
+    "cache_misses": 154,
+    "cache_size_mb": 128,
+    "eviction_count": 12,
+    "average_response_time_ms": 45
+  },
+  "regions": {
+    "regions": [
+      {
+        "code": "BW",
+        "name": "Baden-Württemberg",
+        "clubs_count": 245,
+        "players_count": 8950
+      },
+      {
+        "code": "BY", 
+        "name": "Bayern",
+        "clubs_count": 312,
+        "players_count": 12450
+      },
+      {
+        "code": "BE",
+        "name": "Berlin",
+        "clubs_count": 78,
+        "players_count": 2890
+      },
+      {
+        "code": "NW",
+        "name": "Nordrhein-Westfalen", 
+        "clubs_count": 398,
+        "players_count": 15200
+      }
+    ]
+  },
+  "region_addresses": {
+    "region": "Baden-Württemberg",
+    "addresses": [
+      {
+        "position": "Verbandsschachleiter",
+        "name": "Dr. Klaus Mueller",
+        "email": "schachleiter@wsbv.de",
+        "phone": "+49 711 555 0123",
+        "address": {
+          "street": "Alexanderstraße 45",
+          "city": "Stuttgart",
+          "postal_code": "70184",
+          "state": "Baden-Württemberg"
+        }
+      },
+      {
+        "position": "Spielleiter",
+        "name": "Maria Weber",
+        "email": "spielleitung@wsbv.de", 
+        "phone": "+49 711 555 0124",
+        "address": {
+          "street": "Alexanderstraße 45",
+          "city": "Stuttgart",
+          "postal_code": "70184",
+          "state": "Baden-Württemberg"
+        }
+      },
+      {
+        "position": "Jugendleiter",
+        "name": "Thomas Schmidt",
+        "email": "jugend@wsbv.de",
+        "phone": "+49 711 555 0125",
+        "address": {
+          "street": "Alexanderstraße 45", 
+          "city": "Stuttgart",
+          "postal_code": "70184",
+          "state": "Baden-Württemberg"
+        }
+      }
+    ]
+  },
+  "club_statistics": {
+    "club_id": "C0327",
+    "club_name": "SK Altbach 1920",
+    "member_analytics": {
+      "total_members": 85,
+      "active_players": 65,
+      "inactive_players": 20,
+      "youth_players": 12,
+      "senior_players": 25,
+      "adult_players": 48
+    },
+    "performance_metrics": {
+      "average_dwz": 1680,
+      "median_dwz": 1650,
+      "highest_dwz": 2350,
+      "lowest_dwz": 800,
+      "players_above_2000": 8,
+      "players_above_1800": 22,
+      "players_below_1200": 15
+    },
+    "historical_data": {
+      "member_growth": [
+        {"year": 2020, "members": 78},
+        {"year": 2021, "members": 81},
+        {"year": 2022, "members": 83},
+        {"year": 2023, "members": 84},
+        {"year": 2024, "members": 85}
+      ],
+      "tournament_participation": [
+        {"year": 2023, "tournaments": 15, "total_participants": 45},
+        {"year": 2024, "tournaments": 18, "total_participants": 52}
+      ]
+    },
+    "team_performance": [
+      {
+        "team": "1. Mannschaft",
+        "league": "Verbandsliga Württemberg",
+        "season": "2023/24",
+        "position": 3,
+        "points": 14,
+        "matches": 9
+      },
+      {
+        "team": "2. Mannschaft",
+        "league": "Bezirksklasse A Esslingen", 
+        "season": "2023/24",
+        "position": 1,
+        "points": 16,
+        "matches": 9
+      }
+    ]
+  },
+  "recent_tournaments": {
+    "tournaments": [
+      {
+        "id": "C350-C01-SMU",
+        "name": "Ulm Open 2024",
+        "start_date": "2024-03-15",
+        "end_date": "2024-03-17", 
+        "city": "Ulm",
+        "participants": 156,
+        "status": "completed",
+        "days_ago": 143
+      },
+      {
+        "id": "C351-B15-STU",
+        "name": "Stuttgart Summer Open 2024",
+        "start_date": "2024-07-20",
+        "end_date": "2024-07-21",
+        "city": "Stuttgart",
+        "participants": 89,
+        "status": "completed",
+        "days_ago": 16
+      },
+      {
+        "id": "C352-A08-ESS",
+        "name": "Esslingen Blitz Championship 2024",
+        "start_date": "2024-08-01",
+        "end_date": "2024-08-01",
+        "city": "Esslingen",
+        "participants": 64,
+        "status": "completed", 
+        "days_ago": 4
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 20,
+      "total": 3,
       "total_pages": 1
     }
   }
