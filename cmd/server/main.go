@@ -43,15 +43,17 @@ func main() {
 	logger := setupLogger(cfg.Logger)
 
 	logger.WithFields(logrus.Fields{
-		"api_url":   cfg.API.BaseURL,
-		"timeout":   cfg.API.Timeout,
-		"log_level": cfg.Logger.Level,
-		"mode":      cfg.MCP.Mode,
-		"http_port": cfg.MCP.HTTPPort,
+		"api_url":    cfg.API.BaseURL,
+		"timeout":    cfg.API.Timeout,
+		"log_level":  cfg.Logger.Level,
+		"mode":       cfg.MCP.Mode,
+		"http_port":  cfg.MCP.HTTPPort,
+		"ssl_enabled": cfg.MCP.SSL.Enabled,
+		"api_ssl_verify": cfg.API.SSL.Verify,
 	}).Info("Starting Portal64 MCP Server")
 
 	// Create API client
-	apiClient := api.NewClient(cfg.API.BaseURL, cfg.API.Timeout, logger)
+	apiClient := api.NewClient(cfg.API.BaseURL, cfg.API.Timeout, logger, cfg.API)
 
 	// Create MCP server
 	server := mcp.NewServer(cfg, logger, apiClient)

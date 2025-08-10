@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,28 +12,77 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/svw-info/portal64gomcp/internal/config"
+	"github.com/svw-info/portal64gomcp/internal/ssl"
 )
 
-// Client represents the Portal64 API client
+// Client represents the Portal64 API client with SSL support
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
 	logger     *logrus.Logger
+	config     config.APIConfig
 }
 
-// NewClient creates a new Portal64 API client
-func NewClient(baseURL string, timeout time.Duration, logger *logrus.Logger) *Client {
-	return &Client{
+// NewClient creates a new Portal64 API client with SSL configuration
+func NewClient(baseURL string, timeout time.Duration, logger *logrus.Logger, apiConfig config.APIConfig) *Client {
+	client := &Client{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
-		httpClient: &http.Client{
-			Timeout: timeout,
-			Transport: &http.Transport{
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 10,
-				IdleConnTimeout:     90 * time.Second,
-			},
-		},
-		logger: logger,
+		logger:  logger,
+		config:  apiConfig,
+	}
+
+	// Create HTTP client with SSL configuration
+	client.httpClient = client.createHTTPClient(timeout)
+
+	return client
+}
+
+// createHTTPClient creates an HTTP client with SSL configuration
+func (c *Client) createHTTPClient(timeout time.Duration) *http.Client {
+	transport := &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+		DisableCompression:  false,
+		ForceAttemptHTTP2:   true,
+	}
+
+	// Configure SSL/TLS if using HTTPS
+	if strings.HasPrefix(c.baseURL, "https://") {
+		tlsConfig, err := ssl.CreateClientTLSConfig(
+			c.config.SSL.Verify,
+			c.config.SSL.CAFile,
+			c.config.SSL.ClientCert,
+			c.config.SSL.ClientKey,
+			c.config.SSL.InsecureSkipVerify,
+		)
+		if err != nil {
+			c.logger.WithError(err).Error("Failed to create TLS config, using defaults")
+			tlsConfig = &tls.Config{
+				MinVersion: tls.VersionTLS12,
+				MaxVersion: tls.VersionTLS13,
+			}
+		}
+
+		transport.TLSClientConfig = tlsConfig
+
+		c.logger.WithFields(logrus.Fields{
+			"base_url":              c.baseURL,
+			"verify_certs":          c.config.SSL.Verify,
+			"ca_file":              c.config.SSL.CAFile,
+			"client_cert":          c.config.SSL.ClientCert,
+			"insecure_skip_verify": c.config.SSL.InsecureSkipVerify,
+			"tls_min_version":      "1.2",
+			"tls_max_version":      "1.3",
+		}).Info("Configured HTTPS client")
+	} else {
+		c.logger.WithField("base_url", c.baseURL).Info("Configured HTTP client (no SSL)")
+	}
+
+	return &http.Client{
+		Transport: transport,
+		Timeout:   timeout,
 	}
 }
 

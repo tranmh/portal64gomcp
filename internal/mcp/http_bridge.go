@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
+	"github.com/svw-info/portal64gomcp/internal/ssl"
 )
 
 // HTTPBridge provides HTTP access to MCP functionality
@@ -31,9 +33,11 @@ func NewHTTPBridge(server *Server, logger *logrus.Logger) *HTTPBridge {
 func (h *HTTPBridge) SetupRoutes() *mux.Router {
 	r := mux.NewRouter()
 
-	// Add CORS middleware
+	// Add security middleware
+	r.Use(h.securityMiddleware)
 	r.Use(h.corsMiddleware)
 	r.Use(h.loggingMiddleware)
+	r.Use(h.clientCertMiddleware) // mTLS support
 
 	// Health endpoints
 	r.HandleFunc("/health", h.handleHealth).Methods("GET")
@@ -41,6 +45,11 @@ func (h *HTTPBridge) SetupRoutes() *mux.Router {
 	
 	// Admin endpoints
 	r.HandleFunc("/api/v1/admin/cache", h.handleCacheStats).Methods("GET")
+
+	// SSL info endpoint
+	if h.server.config.MCP.SSL.Enabled {
+		r.HandleFunc("/api/v1/ssl/info", h.handleSSLInfo).Methods("GET")
+	}
 
 	// MCP protocol endpoints
 	r.HandleFunc("/tools/list", h.handleListTools).Methods("POST", "GET")
@@ -680,4 +689,225 @@ func (h *HTTPBridge) writeMCPToolResponse(w http.ResponseWriter, result *CallToo
 
 	// Fallback: return the raw MCP response
 	h.writeJSONResponse(w, http.StatusOK, result)
+}
+
+
+// securityMiddleware adds security headers
+func (h *HTTPBridge) securityMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Add security headers
+		secureHeaders := ssl.SecureHeaders(h.server.config.MCP.SSL.HSTSMaxAge)
+		for key, value := range secureHeaders {
+			w.Header().Set(key, value)
+		}
+
+		// Add additional SSL-specific headers if HTTPS
+		if r.TLS != nil {
+			w.Header().Set("X-SSL-Enabled", "true")
+			w.Header().Set("X-TLS-Version", h.server.formatTLSVersion(r.TLS.Version))
+			
+			if len(r.TLS.PeerCertificates) > 0 {
+				w.Header().Set("X-Client-Cert-Present", "true")
+				// Add client cert subject if available
+				if r.TLS.PeerCertificates[0].Subject.CommonName != "" {
+					w.Header().Set("X-Client-Cert-CN", r.TLS.PeerCertificates[0].Subject.CommonName)
+				}
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// clientCertMiddleware handles client certificate authentication
+func (h *HTTPBridge) clientCertMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Only apply client cert logic if SSL is enabled and configured
+		if !h.server.config.MCP.SSL.Enabled || !h.server.config.MCP.SSL.RequireClientCert {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Check if client certificate is present
+		if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
+			h.logger.WithFields(logrus.Fields{
+				"path":        r.URL.Path,
+				"remote_addr": r.RemoteAddr,
+			}).Warn("Client certificate required but not provided")
+			
+			http.Error(w, "Client certificate required", http.StatusUnauthorized)
+			return
+		}
+
+		// Log client certificate information
+		cert := r.TLS.PeerCertificates[0]
+		h.logger.WithFields(logrus.Fields{
+			"client_cert_cn":     cert.Subject.CommonName,
+			"client_cert_org":    strings.Join(cert.Subject.Organization, ","),
+			"client_cert_serial": cert.SerialNumber.String(),
+			"path":               r.URL.Path,
+		}).Info("Client certificate authenticated")
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Enhanced corsMiddleware handles CORS with SSL considerations
+func (h *HTTPBridge) enhancedCorsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow CORS for development, but be more restrictive in production
+		if !h.server.config.MCP.SSL.Enabled {
+			// Development mode - more permissive CORS
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		} else {
+			// Production mode - restrict origins
+			origin := r.Header.Get("Origin")
+			allowedOrigins := []string{
+				"https://localhost:" + strconv.Itoa(h.server.config.MCP.HTTPPort),
+				"https://127.0.0.1:" + strconv.Itoa(h.server.config.MCP.HTTPPort),
+			}
+			
+			for _, allowed := range allowedOrigins {
+				if origin == allowed {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+					break
+				}
+			}
+		}
+		
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Client-Cert")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+
+		// Handle preflight requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Enhanced loggingMiddleware logs HTTP requests with SSL information
+func (h *HTTPBridge) enhancedLoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		
+		// Create a response writer wrapper to capture status code
+		wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+		
+		// Process request
+		next.ServeHTTP(wrapped, r)
+		
+		// Log request details
+		duration := time.Since(start)
+		
+		logFields := logrus.Fields{
+			"method":      r.Method,
+			"path":        r.URL.Path,
+			"status":      wrapped.statusCode,
+			"duration_ms": duration.Milliseconds(),
+			"remote_addr": r.RemoteAddr,
+			"user_agent":  r.UserAgent(),
+		}
+
+		// Add SSL information if available
+		if r.TLS != nil {
+			logFields["tls_version"] = h.server.formatTLSVersion(r.TLS.Version)
+			logFields["cipher_suite"] = tls.CipherSuiteName(r.TLS.CipherSuite)
+			
+			if len(r.TLS.PeerCertificates) > 0 {
+				cert := r.TLS.PeerCertificates[0]
+				logFields["client_cert_cn"] = cert.Subject.CommonName
+				logFields["client_cert_org"] = strings.Join(cert.Subject.Organization, ",")
+			}
+		}
+
+		// Choose log level based on status code
+		if wrapped.statusCode >= 500 {
+			h.logger.WithFields(logFields).Error("HTTP request completed with server error")
+		} else if wrapped.statusCode >= 400 {
+			h.logger.WithFields(logFields).Warn("HTTP request completed with client error")
+		} else {
+			h.logger.WithFields(logFields).Info("HTTP request completed")
+		}
+	})
+}
+
+// responseWriter wraps http.ResponseWriter to capture status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+// handleSSLInfo provides SSL configuration information
+func (h *HTTPBridge) handleSSLInfo(w http.ResponseWriter, r *http.Request) {
+	if !h.server.config.MCP.SSL.Enabled {
+		http.Error(w, "SSL is not enabled", http.StatusNotFound)
+		return
+	}
+
+	info := map[string]interface{}{
+		"ssl_enabled":           true,
+		"min_tls_version":       h.server.config.MCP.SSL.MinVersion,
+		"max_tls_version":       h.server.config.MCP.SSL.MaxVersion,
+		"require_client_cert":   h.server.config.MCP.SSL.RequireClientCert,
+		"auto_generate_certs":   h.server.config.MCP.SSL.AutoGenerateCerts,
+		"hsts_max_age":          h.server.config.MCP.SSL.HSTSMaxAge,
+		"cert_file":             h.server.config.MCP.SSL.CertFile,
+	}
+
+	// Add connection-specific SSL information
+	if r.TLS != nil {
+		info["connection"] = map[string]interface{}{
+			"tls_version":           h.server.formatTLSVersion(r.TLS.Version),
+			"cipher_suite":          tls.CipherSuiteName(r.TLS.CipherSuite),
+			"server_name":           r.TLS.ServerName,
+			"client_cert_present":   len(r.TLS.PeerCertificates) > 0,
+		}
+
+		if len(r.TLS.PeerCertificates) > 0 {
+			cert := r.TLS.PeerCertificates[0]
+			info["connection"].(map[string]interface{})["client_cert"] = map[string]interface{}{
+				"subject":      cert.Subject.String(),
+				"issuer":       cert.Issuer.String(),
+				"serial":       cert.SerialNumber.String(),
+				"not_before":   cert.NotBefore.Format(time.RFC3339),
+				"not_after":    cert.NotAfter.Format(time.RFC3339),
+				"dns_names":    cert.DNSNames,
+				"ip_addresses": cert.IPAddresses,
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(info)
+}
+
+// Enhanced handleHealth with SSL information
+func (h *HTTPBridge) handleEnhancedHealth(w http.ResponseWriter, r *http.Request) {
+	health := map[string]interface{}{
+		"status":    "ok",
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"version":   "1.0.0", // This could be injected from build info
+		"ssl": map[string]interface{}{
+			"enabled": h.server.config.MCP.SSL.Enabled,
+		},
+	}
+
+	// Add SSL-specific health information
+	if h.server.config.MCP.SSL.Enabled && r.TLS != nil {
+		health["ssl"].(map[string]interface{})["tls_version"] = h.server.formatTLSVersion(r.TLS.Version)
+		health["ssl"].(map[string]interface{})["cipher_suite"] = tls.CipherSuiteName(r.TLS.CipherSuite)
+		health["ssl"].(map[string]interface{})["client_cert_present"] = len(r.TLS.PeerCertificates) > 0
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(health)
 }

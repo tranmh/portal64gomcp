@@ -1,186 +1,149 @@
-.PHONY: build clean test run fmt vet deps help
+# Makefile for Portal64 MCP Server with SSL support
 
-# Variables
-BINARY_NAME=portal64-mcp
-BINARY_DIR=bin
-GO_FILES=$(shell find . -name "*.go" -type f | grep -v vendor/)
-MAIN_PATH=./cmd/server
+.PHONY: help build run test clean ssl-certs ssl-clean dev prod docker-build
 
 # Default target
-all: build
+help:
+	@echo "Portal64 MCP Server - Available targets:"
+	@echo ""
+	@echo "Build targets:"
+	@echo "  build       - Build the binary"
+	@echo "  test        - Run tests"
+	@echo "  clean       - Clean build artifacts"
+	@echo ""
+	@echo "SSL targets:"
+	@echo "  ssl-certs   - Generate development SSL certificates"
+	@echo "  ssl-clean   - Remove generated SSL certificates"
+	@echo "  ssl-info    - Show SSL certificate information"
+	@echo ""
+	@echo "Run targets:"
+	@echo "  dev         - Run in development mode (SSL disabled)"
+	@echo "  prod        - Run in production mode (SSL enabled)"
+	@echo "  run         - Run with default configuration"
+	@echo ""
+	@echo "Docker targets:"
+	@echo "  docker-build - Build Docker image"
+
+# Build configuration
+BINARY_NAME := portal64-mcp
+BUILD_DIR := bin
+CERT_DIR := certs
+GO_FILES := $(shell find . -name '*.go' -type f)
+
+# SSL configuration
+SSL_COUNTRY := US
+SSL_STATE := ""
+SSL_CITY := ""
+SSL_ORG := "Portal64 MCP Server"
+SSL_HOSTS := localhost,127.0.0.1,::1
 
 # Build the binary
-build: deps fmt vet
-	@echo "Building $(BINARY_NAME)..."
-	@mkdir -p $(BINARY_DIR)
-	go build -ldflags="-w -s" -o $(BINARY_DIR)/$(BINARY_NAME) $(MAIN_PATH)
-	@echo "Build complete: $(BINARY_DIR)/$(BINARY_NAME)"
+build: $(BUILD_DIR)/$(BINARY_NAME)
 
-# Build for production (with optimizations)
-build-prod: deps fmt vet
-	@echo "Building $(BINARY_NAME) for production..."
-	@mkdir -p $(BINARY_DIR)
-	CGO_ENABLED=0 go build -ldflags="-w -s -X main.version=$(shell git describe --tags --always --dirty)" -o $(BINARY_DIR)/$(BINARY_NAME) $(MAIN_PATH)
-	@echo "Production build complete: $(BINARY_DIR)/$(BINARY_NAME)"
+$(BUILD_DIR)/$(BINARY_NAME): $(GO_FILES)
+	@echo "Building $(BINARY_NAME)..."
+	@mkdir -p $(BUILD_DIR)
+	go build -ldflags "-s -w" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/server
+
+# Run tests
+test:
+	@echo "Running tests..."
+	go test -v -race ./...
 
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	rm -rf $(BINARY_DIR)
-	go clean -cache
-	@echo "Clean complete"
+	rm -rf $(BUILD_DIR)
+	go clean
 
-# Run tests
-test:
-	@echo "Running all tests..."
-	go test -v -race -coverprofile=coverage.out ./...
-	@echo "Tests complete"
+# Generate development SSL certificates
+ssl-certs: $(CERT_DIR)/server.crt $(CERT_DIR)/server.key
 
-# Run unit tests only
-test-unit:
-	@echo "Running unit tests..."
-	go test -v -race -short ./internal/... ./pkg/...
-	@echo "Unit tests complete"
+$(CERT_DIR)/server.crt $(CERT_DIR)/server.key:
+	@echo "Generating SSL certificates for development..."
+	@mkdir -p $(CERT_DIR)
+	@openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+		-keyout $(CERT_DIR)/server.key \
+		-out $(CERT_DIR)/server.crt \
+		-config <(printf "[req]\n" \
+			"distinguished_name = req_distinguished_name\n" \
+			"req_extensions = v3_req\n" \
+			"prompt = no\n" \
+			"[req_distinguished_name]\n" \
+			"C = $(SSL_COUNTRY)\n" \
+			"ST = $(SSL_STATE)\n" \
+			"L = $(SSL_CITY)\n" \
+			"O = $(SSL_ORG)\n" \
+			"CN = localhost\n" \
+			"[v3_req]\n" \
+			"keyUsage = nonRepudiation, digitalSignature, keyEncipherment\n" \
+			"subjectAltName = @alt_names\n" \
+			"[alt_names]\n" \
+			"DNS.1 = localhost\n" \
+			"IP.1 = 127.0.0.1\n" \
+			"IP.2 = ::1\n")
+	@chmod 600 $(CERT_DIR)/server.key
+	@chmod 644 $(CERT_DIR)/server.crt
+	@echo "SSL certificates generated:"
+	@echo "  Certificate: $(CERT_DIR)/server.crt"
+	@echo "  Private Key: $(CERT_DIR)/server.key"
 
-# Run integration tests only
-test-integration:
-	@echo "Running integration tests..."
-	go test -v -race ./test/integration/...
-	@echo "Integration tests complete"
+# Remove SSL certificates
+ssl-clean:
+	@echo "Removing SSL certificates..."
+	rm -rf $(CERT_DIR)
 
-# Run tests with coverage report
-test-coverage: test
-	@echo "Generating coverage report..."
-	go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
+# Show SSL certificate information
+ssl-info:
+	@if [ -f "$(CERT_DIR)/server.crt" ]; then \
+		echo "SSL Certificate Information:"; \
+		openssl x509 -in $(CERT_DIR)/server.crt -text -noout | grep -A 5 -B 5 "Subject:\|Validity\|DNS:\|IP Address:"; \
+	else \
+		echo "No SSL certificate found. Run 'make ssl-certs' to generate one."; \
+	fi
 
-# Run tests with coverage threshold check
-test-coverage-threshold: test-coverage
-	@echo "Checking coverage threshold..."
-	@go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//' | awk '{if ($$1 < 85) {print "Coverage " $$1 "% is below threshold of 85%"; exit 1} else {print "Coverage " $$1 "% meets threshold"}}'
+# Development mode (SSL disabled)
+dev: build
+	@echo "Starting Portal64 MCP Server in development mode (SSL disabled)..."
+	ENV=development $(BUILD_DIR)/$(BINARY_NAME) -log-level debug
 
-# Run benchmarks
-test-bench:
-	@echo "Running benchmarks..."
-	go test -bench=. -benchmem ./...
-	@echo "Benchmarks complete"
+# Production mode (SSL enabled)
+prod: build ssl-certs
+	@echo "Starting Portal64 MCP Server in production mode (SSL enabled)..."
+	ENV=production $(BUILD_DIR)/$(BINARY_NAME)
 
-# Run tests with race detection
-test-race:
-	@echo "Running tests with race detection..."
-	go test -race ./...
-	@echo "Race detection tests complete"
-
-# Run the application
+# Run with default configuration
 run: build
-	@echo "Running $(BINARY_NAME)..."
-	./$(BINARY_DIR)/$(BINARY_NAME)
+	@echo "Starting Portal64 MCP Server..."
+	$(BUILD_DIR)/$(BINARY_NAME)
 
-# Run with debug logging
-run-debug: build
-	@echo "Running $(BINARY_NAME) with debug logging..."
-	./$(BINARY_DIR)/$(BINARY_NAME) -log-level debug
+# Development with SSL enabled (for testing)
+dev-ssl: build ssl-certs
+	@echo "Starting Portal64 MCP Server in development mode with SSL enabled..."
+	ENV=development MCP_SSL_ENABLED=true $(BUILD_DIR)/$(BINARY_NAME) -log-level debug
 
-# Run with config file
-run-config: build
-	@echo "Running $(BINARY_NAME) with config file..."
-	./$(BINARY_DIR)/$(BINARY_NAME) -config config.yaml
+# Test SSL connection
+test-ssl:
+	@echo "Testing SSL connection..."
+	@if curl -k -s https://localhost:8888/health > /dev/null; then \
+		echo "✓ SSL connection successful"; \
+		curl -k -s https://localhost:8888/api/v1/ssl/info | jq .; \
+	else \
+		echo "✗ SSL connection failed"; \
+		exit 1; \
+	fi
 
-# Format Go code
-fmt:
-	@echo "Formatting code..."
-	go fmt ./...
-
-# Vet Go code
-vet:
-	@echo "Vetting code..."
-	go vet ./...
-
-# Download dependencies
+# Install dependencies
 deps:
-	@echo "Downloading dependencies..."
+	@echo "Installing Go dependencies..."
 	go mod download
 	go mod tidy
 
-# Update dependencies
-deps-update:
-	@echo "Updating dependencies..."
-	go get -u ./...
-	go mod tidy
-
-# Install development tools
-install-tools:
-	@echo "Installing development tools..."
-	go install golang.org/x/tools/cmd/goimports@latest
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-
-# Run linter
-lint:
-	@echo "Running linter..."
-	golangci-lint run
-
-# Generate Go modules graph
-deps-graph:
-	@echo "Generating dependency graph..."
-	go mod graph | sed -E 's/@[^ ]+//g' | sort | uniq > deps.txt
-	@echo "Dependency graph saved to deps.txt"
-
-# Cross-compile for different platforms
-build-all: deps fmt vet
-	@echo "Cross-compiling for multiple platforms..."
-	@mkdir -p $(BINARY_DIR)
-	# Linux amd64
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o $(BINARY_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
-	# Linux arm64
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o $(BINARY_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PATH)
-	# Windows amd64
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o $(BINARY_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PATH)
-	# macOS amd64
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o $(BINARY_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
-	# macOS arm64
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o $(BINARY_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
-	@echo "Cross-compilation complete"
-
-# Create a sample config file
-config-sample:
-	@echo "Creating sample configuration file..."
-	@cat > config.yaml << 'EOF'
-api:
-  base_url: "http://localhost:8080"
-  timeout: "30s"
-
-mcp:
-  port: 3000
-
-logging:
-  level: "info"
-  format: "json"
-EOF
-	@echo "Sample config created: config.yaml"
-
-# Show help
-help:
-	@echo "Available targets:"
-	@echo "  build          - Build the binary"
-	@echo "  build-prod     - Build for production with optimizations"
-	@echo "  build-all      - Cross-compile for multiple platforms"
-	@echo "  clean          - Clean build artifacts"
-	@echo "  test           - Run all tests"
-	@echo "  test-unit      - Run unit tests only"
-	@echo "  test-integration - Run integration tests only"
-	@echo "  test-coverage  - Run tests with coverage report"
-	@echo "  test-coverage-threshold - Check coverage meets 85% threshold"
-	@echo "  test-bench     - Run benchmarks"
-	@echo "  test-race      - Run tests with race detection"
-	@echo "  run            - Build and run the application"
-	@echo "  run-debug      - Run with debug logging"
-	@echo "  run-config     - Run with config file"
-	@echo "  fmt            - Format Go code"
-	@echo "  vet            - Vet Go code"
-	@echo "  lint           - Run linter (requires golangci-lint)"
-	@echo "  deps           - Download and tidy dependencies"
-	@echo "  deps-update    - Update all dependencies"
-	@echo "  deps-graph     - Generate dependency graph"
-	@echo "  install-tools  - Install development tools"
-	@echo "  config-sample  - Create sample configuration file"
-	@echo "  help           - Show this help message"
+# Full development setup
+setup: deps ssl-certs
+	@echo "Development setup complete!"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  make dev      - Run in development mode"
+	@echo "  make dev-ssl  - Run in development mode with SSL"
+	@echo "  make prod     - Run in production mode"

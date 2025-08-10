@@ -3,6 +3,7 @@ package mcp
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -10,10 +11,12 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/svw-info/portal64gomcp/internal/api"
 	"github.com/svw-info/portal64gomcp/internal/config"
+	"github.com/svw-info/portal64gomcp/internal/ssl"
 )
 
 // Server represents the MCP server
@@ -29,6 +32,7 @@ type Server struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	wg         sync.WaitGroup
+	certMgr    *ssl.CertificateManager
 }
 
 // ToolHandler represents a function that handles tool calls
@@ -49,6 +53,7 @@ func NewServer(cfg *config.Config, logger *logrus.Logger, apiClient *api.Client)
 		resources: make(map[string]ResourceHandler),
 		ctx:       ctx,
 		cancel:    cancel,
+		certMgr:   ssl.NewCertificateManager(logger),
 	}
 
 	// Register tools and resources
@@ -98,14 +103,20 @@ func (s *Server) Stop() {
 	s.logger.Info("Stopping MCP server")
 	s.cancel()
 	
-	if s.listener != nil {
-		s.listener.Close()
+	// Gracefully stop HTTP server
+	if s.httpServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			s.logger.WithError(err).Error("Failed to gracefully shutdown HTTP server")
+			s.httpServer.Close()
+		}
 	}
 	
-	if s.httpServer != nil {
-		if err := s.httpServer.Shutdown(context.Background()); err != nil {
-			s.logger.WithError(err).Error("Error shutting down HTTP server")
-		}
+	// Close listener if exists
+	if s.listener != nil {
+		s.listener.Close()
 	}
 }
 
@@ -393,4 +404,88 @@ func (s *Server) startHTTPServer() error {
 	
 	s.logger.WithField("addr", addr).Info("Starting HTTP server")
 	return s.httpServer.ListenAndServe()
+}
+
+
+// startHTTPSServer starts the HTTPS server
+func (s *Server) startHTTPSServer(addr string) error {
+	s.logger.WithField("addr", addr).Info("Starting HTTPS server")
+
+	// Load or generate certificates
+	cert, err := s.certMgr.LoadOrGenerateCertificate(
+		s.config.MCP.SSL.CertFile,
+		s.config.MCP.SSL.KeyFile,
+		s.config.MCP.SSL.AutoCertHosts,
+		s.config.MCP.SSL.AutoGenerateCerts,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to load SSL certificate: %w", err)
+	}
+
+	// Get TLS configuration from config
+	tlsConfig, err := s.config.MCP.SSL.GetTLSConfig()
+	if err != nil {
+		return fmt.Errorf("failed to create TLS config: %w", err)
+	}
+
+	// Set the certificate
+	tlsConfig.Certificates = []tls.Certificate{cert}
+
+	// Load CA certificates if specified (for client cert verification)
+	if s.config.MCP.SSL.CAFile != "" {
+		clientCAs, err := ssl.LoadCACertificates(s.config.MCP.SSL.CAFile)
+		if err != nil {
+			return fmt.Errorf("failed to load CA certificates: %w", err)
+		}
+		tlsConfig.ClientCAs = clientCAs
+	}
+
+	// Configure server with TLS
+	s.httpServer.TLSConfig = tlsConfig
+
+	s.logger.WithFields(logrus.Fields{
+		"addr":                addr,
+		"tls_min_version":     s.formatTLSVersion(tlsConfig.MinVersion),
+		"tls_max_version":     s.formatTLSVersion(tlsConfig.MaxVersion),
+		"client_auth":         s.formatClientAuth(tlsConfig.ClientAuth),
+		"cert_file":           s.config.MCP.SSL.CertFile,
+		"auto_generated":      s.config.MCP.SSL.AutoGenerateCerts,
+	}).Info("HTTPS server configuration")
+
+	// Start HTTPS server
+	return s.httpServer.ListenAndServeTLS("", "")
+}
+
+// formatTLSVersion converts TLS version constant to string
+func (s *Server) formatTLSVersion(version uint16) string {
+	switch version {
+	case tls.VersionTLS10:
+		return "1.0"
+	case tls.VersionTLS11:
+		return "1.1"
+	case tls.VersionTLS12:
+		return "1.2"
+	case tls.VersionTLS13:
+		return "1.3"
+	default:
+		return fmt.Sprintf("unknown(0x%04x)", version)
+	}
+}
+
+// formatClientAuth converts ClientAuthType to string
+func (s *Server) formatClientAuth(authType tls.ClientAuthType) string {
+	switch authType {
+	case tls.NoClientCert:
+		return "none"
+	case tls.RequestClientCert:
+		return "request"
+	case tls.RequireAnyClientCert:
+		return "require_any"
+	case tls.VerifyClientCertIfGiven:
+		return "verify_if_given"
+	case tls.RequireAndVerifyClientCert:
+		return "require_and_verify"
+	default:
+		return fmt.Sprintf("unknown(%d)", authType)
+	}
 }
