@@ -7,9 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
 	"github.com/svw-info/portal64gomcp/internal/api"
 	"github.com/svw-info/portal64gomcp/internal/config"
+	"github.com/svw-info/portal64gomcp/internal/logger"
 	"github.com/svw-info/portal64gomcp/internal/mcp"
 )
 
@@ -39,24 +39,79 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Setup logging
-	logger := setupLogger(cfg.Logger)
+	// Setup enhanced logging
+	loggerConfig := &logger.Config{
+		Level:   cfg.Logger.Level,
+		Format:  cfg.Logger.Format,
+		Console: logger.ConsoleConfig{
+			Enabled:     cfg.Logger.Console.Enabled,
+			ForceColors: cfg.Logger.Console.ForceColors,
+		},
+		File: logger.FileConfig{
+			Enabled:  cfg.Logger.File.Enabled,
+			BasePath: cfg.Logger.File.BasePath,
+		},
+		Rotation: logger.RotationConfig{
+			MaxSize:       cfg.Logger.Rotation.MaxSize,
+			MaxAge:        cfg.Logger.Rotation.MaxAge,
+			MaxBackups:    cfg.Logger.Rotation.MaxBackups,
+			Compress:      cfg.Logger.Rotation.Compress,
+			CompressAfter: cfg.Logger.Rotation.CompressAfter,
+		},
+		Separation: logger.SeparationConfig{
+			Enabled:    cfg.Logger.Separation.Enabled,
+			AccessLog:  cfg.Logger.Separation.AccessLog,
+			ErrorLog:   cfg.Logger.Separation.ErrorLog,
+			MetricsLog: cfg.Logger.Separation.MetricsLog,
+		},
+		Async: logger.AsyncConfig{
+			Enabled:         cfg.Logger.Async.Enabled,
+			BufferSize:      cfg.Logger.Async.BufferSize,
+			FlushInterval:   cfg.Logger.Async.FlushInterval,
+			ShutdownTimeout: cfg.Logger.Async.ShutdownTimeout,
+		},
+		Metrics: logger.MetricsConfig{
+			Enabled:          cfg.Logger.Metrics.Enabled,
+			IncludeCaller:    cfg.Logger.Metrics.IncludeCaller,
+			IncludeRequestID: cfg.Logger.Metrics.IncludeRequestID,
+			IncludeDuration:  cfg.Logger.Metrics.IncludeDuration,
+		},
+	}
 
-	logger.WithFields(logrus.Fields{
-		"api_url":    cfg.API.BaseURL,
-		"timeout":    cfg.API.Timeout,
-		"log_level":  cfg.Logger.Level,
-		"mode":       cfg.MCP.Mode,
-		"http_port":  cfg.MCP.HTTPPort,
-		"ssl_enabled": cfg.MCP.SSL.Enabled,
+	// Create logger factory
+	factory, err := logger.NewFactory(loggerConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create logger factory: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Create main logger instance
+	mainLogger, err := factory.Create("main")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create logger: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Ensure graceful shutdown of logging system
+	defer mainLogger.Close()
+
+	mainLogger.WithFields(map[string]interface{}{
+		"api_url":        cfg.API.BaseURL,
+		"timeout":        cfg.API.Timeout,
+		"log_level":      cfg.Logger.Level,
+		"mode":           cfg.MCP.Mode,
+		"http_port":      cfg.MCP.HTTPPort,
+		"ssl_enabled":    cfg.MCP.SSL.Enabled,
 		"api_ssl_verify": cfg.API.SSL.Verify,
-	}).Info("Starting Portal64 MCP Server")
+		"file_logging":   cfg.Logger.File.Enabled,
+		"async_logging":  cfg.Logger.Async.Enabled,
+	}).Info("Starting Portal64 MCP Server with enhanced logging")
 
 	// Create API client
-	apiClient := api.NewClient(cfg.API.BaseURL, cfg.API.Timeout, logger, cfg.API)
+	apiClient := api.NewClient(cfg.API.BaseURL, cfg.API.Timeout, mainLogger, cfg.API)
 
 	// Create MCP server
-	server := mcp.NewServer(cfg, logger, apiClient)
+	server := mcp.NewServer(cfg, mainLogger, apiClient)
 
 	// Setup graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -64,43 +119,19 @@ func main() {
 
 	go func() {
 		sig := <-sigChan
-		logger.WithField("signal", sig).Info("Received shutdown signal")
+		mainLogger.WithField("signal", sig.String()).Info("Received shutdown signal")
+		
+		// Flush logs before shutdown
+		mainLogger.Flush()
+		
 		server.Stop()
 	}()
 
 	// Start server
-	logger.Info("MCP server starting...")
+	mainLogger.Info("MCP server starting...")
 	if err := server.Start(); err != nil {
-		logger.WithError(err).Fatal("Server failed to start")
+		mainLogger.WithError(err).Fatal("Server failed to start")
 	}
 
-	logger.Info("MCP server stopped")
-}
-
-// setupLogger configures the logger based on configuration
-func setupLogger(cfg config.LoggerConfig) *logrus.Logger {
-	logger := logrus.New()
-
-	// Set log level
-	level, err := logrus.ParseLevel(cfg.Level)
-	if err != nil {
-		logger.WithError(err).Warn("Invalid log level, using info")
-		level = logrus.InfoLevel
-	}
-	logger.SetLevel(level)
-
-	// Set log format
-	switch cfg.Format {
-	case "json":
-		logger.SetFormatter(&logrus.JSONFormatter{
-			TimestampFormat: "2006-01-02T15:04:05.000Z07:00",
-		})
-	default:
-		logger.SetFormatter(&logrus.TextFormatter{
-			FullTimestamp:   true,
-			TimestampFormat: "2006-01-02 15:04:05",
-		})
-	}
-
-	return logger
+	mainLogger.Info("MCP server stopped")
 }

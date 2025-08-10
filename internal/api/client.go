@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/svw-info/portal64gomcp/internal/config"
+	"github.com/svw-info/portal64gomcp/internal/logger"
 	"github.com/svw-info/portal64gomcp/internal/ssl"
 )
 
@@ -20,12 +20,12 @@ import (
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
-	logger     *logrus.Logger
+	logger     logger.Logger
 	config     config.APIConfig
 }
 
 // NewClient creates a new Portal64 API client with SSL configuration
-func NewClient(baseURL string, timeout time.Duration, logger *logrus.Logger, apiConfig config.APIConfig) *Client {
+func NewClient(baseURL string, timeout time.Duration, logger logger.Logger, apiConfig config.APIConfig) *Client {
 	client := &Client{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		logger:  logger,
@@ -67,7 +67,7 @@ func (c *Client) createHTTPClient(timeout time.Duration) *http.Client {
 
 		transport.TLSClientConfig = tlsConfig
 
-		c.logger.WithFields(logrus.Fields{
+		c.logger.WithFields(map[string]interface{}{
 			"base_url":              c.baseURL,
 			"verify_certs":          c.config.SSL.Verify,
 			"ca_file":              c.config.SSL.CAFile,
@@ -160,7 +160,7 @@ func (c *Client) DoRequest(ctx context.Context, method, url string) (*http.Respo
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	c.logger.WithFields(logrus.Fields{
+	c.logger.WithFields(map[string]interface{}{
 		"method": method,
 		"url":    url,
 	}).Debug("Making API request")

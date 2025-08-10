@@ -11,18 +11,18 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
+	"github.com/svw-info/portal64gomcp/internal/logger"
 	"github.com/svw-info/portal64gomcp/internal/ssl"
 )
 
 // HTTPBridge provides HTTP access to MCP functionality
 type HTTPBridge struct {
 	server *Server
-	logger *logrus.Logger
+	logger logger.Logger
 }
 
 // NewHTTPBridge creates a new HTTP bridge for MCP server
-func NewHTTPBridge(server *Server, logger *logrus.Logger) *HTTPBridge {
+func NewHTTPBridge(server *Server, logger logger.Logger) *HTTPBridge {
 	return &HTTPBridge{
 		server: server,
 		logger: logger,
@@ -109,7 +109,7 @@ func (h *HTTPBridge) loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		next.ServeHTTP(w, r)
-		h.logger.WithFields(logrus.Fields{
+		h.logger.WithFields(map[string]interface{}{
 			"method":   r.Method,
 			"path":     r.URL.Path,
 			"duration": time.Since(start),
@@ -636,7 +636,7 @@ func (h *HTTPBridge) callMCPTool(ctx context.Context, toolName string, args map[
 		return nil, fmt.Errorf("tool not found: %s", toolName)
 	}
 
-	h.logger.WithFields(logrus.Fields{
+	h.logger.WithFields(map[string]interface{}{
 		"tool": toolName,
 		"args": args,
 	}).Debug("Executing tool via HTTP bridge")
@@ -730,7 +730,7 @@ func (h *HTTPBridge) clientCertMiddleware(next http.Handler) http.Handler {
 
 		// Check if client certificate is present
 		if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
-			h.logger.WithFields(logrus.Fields{
+			h.logger.WithFields(map[string]interface{}{
 				"path":        r.URL.Path,
 				"remote_addr": r.RemoteAddr,
 			}).Warn("Client certificate required but not provided")
@@ -741,7 +741,7 @@ func (h *HTTPBridge) clientCertMiddleware(next http.Handler) http.Handler {
 
 		// Log client certificate information
 		cert := r.TLS.PeerCertificates[0]
-		h.logger.WithFields(logrus.Fields{
+		h.logger.WithFields(map[string]interface{}{
 			"client_cert_cn":     cert.Subject.CommonName,
 			"client_cert_org":    strings.Join(cert.Subject.Organization, ","),
 			"client_cert_serial": cert.SerialNumber.String(),
@@ -803,7 +803,7 @@ func (h *HTTPBridge) enhancedLoggingMiddleware(next http.Handler) http.Handler {
 		// Log request details
 		duration := time.Since(start)
 		
-		logFields := logrus.Fields{
+		logFields := map[string]interface{}{
 			"method":      r.Method,
 			"path":        r.URL.Path,
 			"status":      wrapped.statusCode,

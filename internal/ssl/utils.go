@@ -15,16 +15,16 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/svw-info/portal64gomcp/internal/logger"
 )
 
 // CertificateManager handles SSL certificate operations
 type CertificateManager struct {
-	logger *logrus.Logger
+	logger logger.Logger
 }
 
 // NewCertificateManager creates a new certificate manager
-func NewCertificateManager(logger *logrus.Logger) *CertificateManager {
+func NewCertificateManager(logger logger.Logger) *CertificateManager {
 	return &CertificateManager{
 		logger: logger,
 	}
@@ -34,7 +34,7 @@ func NewCertificateManager(logger *logrus.Logger) *CertificateManager {
 func (cm *CertificateManager) LoadOrGenerateCertificate(certFile, keyFile string, hosts []string, autoGenerate bool) (tls.Certificate, error) {
 	// Try to load existing certificate first
 	if cm.certificatesExist(certFile, keyFile) {
-		cm.logger.WithFields(logrus.Fields{
+		cm.logger.WithFields(map[string]interface{}{
 			"cert_file": certFile,
 			"key_file":  keyFile,
 		}).Info("Loading existing SSL certificates")
@@ -60,7 +60,7 @@ func (cm *CertificateManager) LoadOrGenerateCertificate(certFile, keyFile string
 
 	// Generate new certificate if needed
 	if autoGenerate {
-		cm.logger.WithFields(logrus.Fields{
+		cm.logger.WithFields(map[string]interface{}{
 			"cert_file": certFile,
 			"key_file":  keyFile,
 			"hosts":     hosts,
@@ -130,7 +130,7 @@ func (cm *CertificateManager) validateCertificate(cert tls.Certificate, hosts []
 		}
 	}
 
-	cm.logger.WithFields(logrus.Fields{
+	cm.logger.WithFields(map[string]interface{}{
 		"subject":    x509Cert.Subject,
 		"expires":    x509Cert.NotAfter,
 		"san_dns":    x509Cert.DNSNames,
@@ -226,7 +226,7 @@ func (cm *CertificateManager) generateSelfSignedCertificate(certFile, keyFile st
 		return tls.Certificate{}, fmt.Errorf("failed to write private key: %w", err)
 	}
 
-	cm.logger.WithFields(logrus.Fields{
+	cm.logger.WithFields(map[string]interface{}{
 		"cert_file": certFile,
 		"key_file":  keyFile,
 		"dns_names": template.DNSNames,

@@ -1,5 +1,5 @@
 api:
-  base_url: "https://localhost:8080"  # Now HTTPS
+  base_url: "https://test.svw.info:8080"  # Now HTTPS
   timeout: "30s"
   ssl:
     verify: true                      # Verify server certificates
@@ -13,7 +13,7 @@ mcp:
   mode: "both"
   http_port: 8888
   ssl:
-    enabled: true                     # SSL required when true
+    enabled: false                     # SSL required when true
     cert_file: "certs/server.crt"     # Server certificate
     key_file: "certs/server.key"      # Server private key
     ca_file: ""                       # CA for client cert verification (optional)
@@ -29,6 +29,45 @@ mcp:
 logging:
   level: "info"
   format: "json"
+  
+  # Console output configuration
+  console:
+    enabled: true
+    force_colors: false
+    
+  # File output configuration
+  file:
+    enabled: true
+    base_path: "logs"
+    
+  # Log rotation configuration
+  rotation:
+    max_size: 100          # MB - rotate when file reaches this size
+    max_age: 1             # days - rotate daily
+    max_backups: 30        # number of rotated files to keep
+    compress: true         # compress rotated files
+    compress_after: 1      # days - compress files older than this
+    
+  # Log separation configuration
+  separation:
+    enabled: true          # Enable log separation
+    access_log: true       # Separate access logs
+    error_log: true        # Separate error logs
+    metrics_log: true      # Separate metrics logs
+    
+  # Async logging configuration
+  async:
+    enabled: true          # Enable async logging
+    buffer_size: 1000      # Buffer size for async writes
+    flush_interval: "5s"   # Force flush interval
+    shutdown_timeout: "10s" # Graceful shutdown timeout
+    
+  # Metrics configuration
+  metrics:
+    enabled: true          # Enable performance metrics
+    include_caller: true   # Include file:line in logs
+    include_request_id: true # Include request IDs
+    include_duration: true # Include request duration
 
 # Environment-specific overrides
 development:

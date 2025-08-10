@@ -20,9 +20,9 @@ type Config struct {
 
 // APIConfig holds Portal64 API configuration
 type APIConfig struct {
-	BaseURL string        `mapstructure:"base_url"`
-	Timeout time.Duration `mapstructure:"timeout"`
-	SSL     APISSLConfig  `mapstructure:"ssl"`
+	BaseURL string        `mapstructure:"base_url" json:"base_url"`
+	Timeout time.Duration `mapstructure:"timeout" json:"timeout"`
+	SSL     APISSLConfig  `mapstructure:"ssl" json:"ssl"`
 }
 
 // APISSLConfig holds API client SSL configuration
@@ -64,10 +64,61 @@ type DevelopmentConfig struct {
 	API APIConfig `mapstructure:"api"`
 }
 
-// LoggerConfig holds logging configuration
+// LoggerConfig holds enhanced logging configuration
 type LoggerConfig struct {
-	Level  string `mapstructure:"level"`
-	Format string `mapstructure:"format"`
+	Level      string           `mapstructure:"level"`
+	Format     string           `mapstructure:"format"`
+	Console    ConsoleConfig    `mapstructure:"console"`
+	File       FileConfig       `mapstructure:"file"`
+	Rotation   RotationConfig   `mapstructure:"rotation"`
+	Separation SeparationConfig `mapstructure:"separation"`
+	Async      AsyncConfig      `mapstructure:"async"`
+	Metrics    MetricsConfig    `mapstructure:"metrics"`
+}
+
+// ConsoleConfig holds console output configuration
+type ConsoleConfig struct {
+	Enabled     bool `mapstructure:"enabled"`
+	ForceColors bool `mapstructure:"force_colors"`
+}
+
+// FileConfig holds file output configuration
+type FileConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	BasePath string `mapstructure:"base_path"`
+}
+
+// RotationConfig holds log rotation configuration
+type RotationConfig struct {
+	MaxSize       int  `mapstructure:"max_size"`        // MB
+	MaxAge        int  `mapstructure:"max_age"`         // days
+	MaxBackups    int  `mapstructure:"max_backups"`     // number of files
+	Compress      bool `mapstructure:"compress"`        // compress old files
+	CompressAfter int  `mapstructure:"compress_after"`  // days before compression
+}
+
+// SeparationConfig holds log separation configuration
+type SeparationConfig struct {
+	Enabled    bool `mapstructure:"enabled"`
+	AccessLog  bool `mapstructure:"access_log"`
+	ErrorLog   bool `mapstructure:"error_log"`
+	MetricsLog bool `mapstructure:"metrics_log"`
+}
+
+// AsyncConfig holds async logging configuration
+type AsyncConfig struct {
+	Enabled         bool          `mapstructure:"enabled" json:"enabled"`
+	BufferSize      int           `mapstructure:"buffer_size" json:"buffer_size"`
+	FlushInterval   time.Duration `mapstructure:"flush_interval" json:"flush_interval"`
+	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout" json:"shutdown_timeout"`
+}
+
+// MetricsConfig holds metrics configuration
+type MetricsConfig struct {
+	Enabled           bool `mapstructure:"enabled"`
+	IncludeCaller     bool `mapstructure:"include_caller"`
+	IncludeRequestID  bool `mapstructure:"include_request_id"`
+	IncludeDuration   bool `mapstructure:"include_duration"`
 }
 
 // Load loads configuration from environment variables and config files
@@ -137,8 +188,42 @@ func setDefaults() {
 	viper.SetDefault("mcp.ssl.auto_cert_hosts", []string{"localhost", "127.0.0.1"})
 
 	// Logging defaults
+	// Enhanced logging defaults
 	viper.SetDefault("logging.level", "info")
 	viper.SetDefault("logging.format", "json")
+	
+	// Console output defaults
+	viper.SetDefault("logging.console.enabled", true)
+	viper.SetDefault("logging.console.force_colors", false)
+	
+	// File output defaults
+	viper.SetDefault("logging.file.enabled", true)
+	viper.SetDefault("logging.file.base_path", "logs")
+	
+	// Rotation defaults
+	viper.SetDefault("logging.rotation.max_size", 100)      // 100MB
+	viper.SetDefault("logging.rotation.max_age", 1)         // 1 day
+	viper.SetDefault("logging.rotation.max_backups", 30)    // 30 files
+	viper.SetDefault("logging.rotation.compress", true)     // compress old files
+	viper.SetDefault("logging.rotation.compress_after", 1)  // compress after 1 day
+	
+	// Separation defaults
+	viper.SetDefault("logging.separation.enabled", true)
+	viper.SetDefault("logging.separation.access_log", true)
+	viper.SetDefault("logging.separation.error_log", true)
+	viper.SetDefault("logging.separation.metrics_log", true)
+	
+	// Async defaults
+	viper.SetDefault("logging.async.enabled", true)
+	viper.SetDefault("logging.async.buffer_size", 1000)
+	viper.SetDefault("logging.async.flush_interval", "5s")
+	viper.SetDefault("logging.async.shutdown_timeout", "10s")
+	
+	// Metrics defaults
+	viper.SetDefault("logging.metrics.enabled", true)
+	viper.SetDefault("logging.metrics.include_caller", true)
+	viper.SetDefault("logging.metrics.include_request_id", true)
+	viper.SetDefault("logging.metrics.include_duration", true)
 
 	// Development overrides
 	viper.SetDefault("development.mcp.ssl.enabled", false)
@@ -169,6 +254,11 @@ func bindEnvVars() {
 	
 	// Logging env bindings
 	viper.BindEnv("logging.level", "LOG_LEVEL")
+	viper.BindEnv("logging.format", "LOG_FORMAT")
+	viper.BindEnv("logging.file.enabled", "LOG_FILE_ENABLED")
+	viper.BindEnv("logging.file.base_path", "LOG_FILE_PATH")
+	viper.BindEnv("logging.async.enabled", "LOG_ASYNC_ENABLED")
+	viper.BindEnv("logging.metrics.enabled", "LOG_METRICS_ENABLED")
 }
 
 // isDevelopment checks if running in development mode

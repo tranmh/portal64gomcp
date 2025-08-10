@@ -13,16 +13,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/svw-info/portal64gomcp/internal/api"
 	"github.com/svw-info/portal64gomcp/internal/config"
+	"github.com/svw-info/portal64gomcp/internal/logger"
 	"github.com/svw-info/portal64gomcp/internal/ssl"
 )
 
 // Server represents the MCP server
 type Server struct {
 	config     *config.Config
-	logger     *logrus.Logger
+	logger     logger.Logger
 	apiClient  *api.Client
 	tools      map[string]ToolHandler
 	resources  map[string]ResourceHandler
@@ -42,7 +42,7 @@ type ToolHandler func(ctx context.Context, args map[string]interface{}) (*CallTo
 type ResourceHandler func(ctx context.Context, uri string) (*ReadResourceResponse, error)
 
 // NewServer creates a new MCP server
-func NewServer(cfg *config.Config, logger *logrus.Logger, apiClient *api.Client) *Server {
+func NewServer(cfg *config.Config, logger logger.Logger, apiClient *api.Client) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	
 	server := &Server{
@@ -214,7 +214,7 @@ func (s *Server) handleInitialize(msg *Message) (*Message, error) {
 		return NewErrorResponse(msg.ID, InvalidParams, "Invalid parameters", err.Error()), nil
 	}
 
-	s.logger.WithFields(logrus.Fields{
+	s.logger.WithFields(map[string]interface{}{
 		"client":           req.ClientInfo.Name,
 		"client_version":   req.ClientInfo.Version,
 		"protocol_version": req.ProtocolVersion,
@@ -269,7 +269,7 @@ func (s *Server) handleCallTool(msg *Message) (*Message, error) {
 		return NewErrorResponse(msg.ID, MethodNotFound, fmt.Sprintf("Tool not found: %s", req.Name), nil), nil
 	}
 
-	s.logger.WithFields(logrus.Fields{
+	s.logger.WithFields(map[string]interface{}{
 		"tool": req.Name,
 		"args": req.Arguments,
 	}).Info("Executing tool")
@@ -396,13 +396,20 @@ func (s *Server) parseParams(params interface{}, target interface{}) error {
 func (s *Server) startHTTPServer() error {
 	router := s.bridge.SetupRoutes()
 	
+	// Add logging middleware
+	middleware := logger.NewHTTPMiddleware(s.logger)
+	wrappedRouter := middleware.Handler(router)
+	
+	// Add request ID middleware
+	wrappedRouter = logger.RequestIDMiddleware(wrappedRouter)
+	
 	addr := fmt.Sprintf(":%d", s.config.MCP.HTTPPort)
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: router,
+		Handler: wrappedRouter,
 	}
 	
-	s.logger.WithField("addr", addr).Info("Starting HTTP server")
+	s.logger.WithField("addr", addr).Info("Starting HTTP server with enhanced logging")
 	return s.httpServer.ListenAndServe()
 }
 
@@ -443,7 +450,7 @@ func (s *Server) startHTTPSServer(addr string) error {
 	// Configure server with TLS
 	s.httpServer.TLSConfig = tlsConfig
 
-	s.logger.WithFields(logrus.Fields{
+	s.logger.WithFields(map[string]interface{}{
 		"addr":                addr,
 		"tls_min_version":     s.formatTLSVersion(tlsConfig.MinVersion),
 		"tls_max_version":     s.formatTLSVersion(tlsConfig.MaxVersion),
