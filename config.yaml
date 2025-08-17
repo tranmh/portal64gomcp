@@ -4,9 +4,9 @@ api:
 
 mcp:
   port: 3000
-  #mode: "stdio"
+  mode: "stdio"
   #mode: "http"
-  mode: "both"
+  #mode: "both"
   http_port: 8888
 
 logging:

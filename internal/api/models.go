@@ -176,17 +176,18 @@ type GameResult struct {
 
 // Evaluation represents DWZ rating evaluation
 type Evaluation struct {
-	ID           string    `json:"id"`
-	PlayerID     string    `json:"player_id"`
-	TournamentID string    `json:"tournament_id"`
-	OldDWZ       int       `json:"old_dwz"`
-	NewDWZ       int       `json:"new_dwz"`
-	DWZChange    int       `json:"dwz_change"`
-	Performance  int       `json:"performance"`
-	Games        int       `json:"games"`
-	Points       float64   `json:"points"`
-	Date         time.Time `json:"date"`
-	Type         string    `json:"type"`       // "tournament", "rapid", "blitz"
+	ID             string    `json:"id"`
+	PlayerID       string    `json:"player_id"`
+	TournamentID   string    `json:"tournament_id"`
+	TournamentName string    `json:"tournament_name,omitempty"` // NEW: Tournament name for better context
+	OldDWZ         int       `json:"old_dwz"`
+	NewDWZ         int       `json:"new_dwz"`
+	DWZChange      int       `json:"dwz_change"`
+	Performance    int       `json:"performance"`
+	Games          int       `json:"games"`
+	Points         float64   `json:"points"`
+	Date           time.Time `json:"date"`
+	Type           string    `json:"type"`       // "tournament", "rapid", "blitz"
 }
 
 // TournamentStatistics represents tournament statistics
@@ -311,18 +312,20 @@ type APIResponse struct {
 
 // RatingHistoryEntry represents a single rating history entry from the API
 type RatingHistoryEntry struct {
-	ID           int     `json:"id"`
-	TournamentID string  `json:"tournament_id"`
-	IDPerson     int     `json:"id_person"`
-	ECoefficient int     `json:"e_coefficient"`
-	We           float64 `json:"we"`
-	Achievement  int     `json:"achievement"`
-	Level        int     `json:"level"`
-	Games        int     `json:"games"`
-	UnratedGames int     `json:"unrated_games"`
-	Points       float64 `json:"points"`
-	DWZOld       int     `json:"dwz_old"`
-	DWZOldIndex  int     `json:"dwz_old_index"`
-	DWZNew       int     `json:"dwz_new"`
-	DWZNewIndex  int     `json:"dwz_new_index"`
+	ID             int        `json:"id"`
+	TournamentID   string     `json:"tournament_id"`
+	TournamentName string     `json:"tournament_name"` // NEW: Tournament name from optimized API
+	TournamentDate *time.Time `json:"tournament_date"` // NEW: Pre-computed tournament date
+	IDPerson       int        `json:"id_person"`
+	ECoefficient   int        `json:"e_coefficient"`
+	We             float64    `json:"we"`
+	Achievement    int        `json:"achievement"`
+	Level          int        `json:"level"`
+	Games          int        `json:"games"`
+	UnratedGames   int        `json:"unrated_games"`
+	Points         float64    `json:"points"`
+	DWZOld         int        `json:"dwz_old"`
+	DWZOldIndex    int        `json:"dwz_old_index"`
+	DWZNew         int        `json:"dwz_new"`
+	DWZNewIndex    int        `json:"dwz_new_index"`
 }

@@ -268,24 +268,30 @@ func (c *Client) GetPlayerRatingHistory(ctx context.Context, playerID string) ([
 	evaluations := make([]Evaluation, len(entries))
 	for i, entry := range entries {
 		evaluation := Evaluation{
-			ID:           fmt.Sprintf("%d", entry.ID),
-			PlayerID:     playerID,
-			TournamentID: entry.TournamentID,
-			OldDWZ:       entry.DWZOld,
-			NewDWZ:       entry.DWZNew,
-			DWZChange:    entry.DWZNew - entry.DWZOld,
-			Performance:  entry.Achievement,
-			Games:        entry.Games,
-			Points:       entry.Points,
-			Type:         "tournament", // Default type
+			ID:             fmt.Sprintf("%d", entry.ID),
+			PlayerID:       playerID,
+			TournamentID:   entry.TournamentID,
+			TournamentName: entry.TournamentName, // NEW: Include tournament name for better context
+			OldDWZ:         entry.DWZOld,
+			NewDWZ:         entry.DWZNew,
+			DWZChange:      entry.DWZNew - entry.DWZOld,
+			Performance:    entry.Achievement,
+			Games:          entry.Games,
+			Points:         entry.Points,
+			Type:           "tournament", // Default type
 		}
 
-		// If we have a tournament_id, try to get the tournament date
-		if entry.TournamentID != "" {
+		// Use pre-computed tournament date from optimized API - no more N+1 queries!
+		if entry.TournamentDate != nil {
+			evaluation.Date = *entry.TournamentDate
+			c.logger.WithField("tournament_id", entry.TournamentID).
+				Debug("Using pre-computed tournament date from API")
+		} else if entry.TournamentID != "" {
+			// Fallback to separate API call only if pre-computed date not available
 			if tournamentDate, err := c.GetTournamentDate(ctx, entry.TournamentID); err == nil {
 				evaluation.Date = tournamentDate
 				c.logger.WithField("tournament_id", entry.TournamentID).
-					Debug("Successfully set tournament date for rating history entry")
+					Debug("Used fallback tournament date lookup")
 			} else {
 				c.logger.WithError(err).WithField("tournament_id", entry.TournamentID).
 					Warn("Failed to get tournament date for rating history entry")
