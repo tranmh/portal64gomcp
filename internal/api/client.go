@@ -334,15 +334,21 @@ func (c *Client) SearchClubs(ctx context.Context, params SearchParams) (*SearchR
 }
 // GetClubProfile retrieves comprehensive club profile with members and statistics
 func (c *Client) GetClubProfile(ctx context.Context, clubID string) (*ClubProfileResponse, error) {
-	url := c.BuildURL(fmt.Sprintf("/api/v1/clubs/%s", clubID), nil)
+	url := c.BuildURL(fmt.Sprintf("/api/v1/clubs/%s/profile", clubID), nil)
 	
 	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
+	// Parse the wrapped API response
+	var apiResp APIResponse
+	if err := c.DecodeResponse(resp, &apiResp); err != nil {
+		return nil, err
+	}
+
 	var profile ClubProfileResponse
-	if err := c.DecodeResponse(resp, &profile); err != nil {
+	if err := json.Unmarshal(apiResp.Data, &profile); err != nil {
 		return nil, err
 	}
 
@@ -380,19 +386,89 @@ func (c *Client) GetClubPlayers(ctx context.Context, clubID string, params Searc
 
 // GetClubStatistics retrieves club performance statistics and member analytics
 func (c *Client) GetClubStatistics(ctx context.Context, clubID string) (*ClubRatingStats, error) {
-	url := c.BuildURL(fmt.Sprintf("/api/v1/clubs/%s/statistics", clubID), nil)
+	// Get comprehensive club profile which includes rating statistics
+	url := c.BuildURL(fmt.Sprintf("/api/v1/clubs/%s/profile", clubID), nil)
 	
 	resp, err := c.DoRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
-	var stats ClubRatingStats
-	if err := c.DecodeResponse(resp, &stats); err != nil {
+	// Parse the wrapped API response
+	var apiResp APIResponse
+	if err := c.DecodeResponse(resp, &apiResp); err != nil {
 		return nil, err
 	}
 
-	return &stats, nil
+	// Parse profile data to extract rating stats
+	var profileData map[string]interface{}
+	if err := json.Unmarshal(apiResp.Data, &profileData); err != nil {
+		return nil, fmt.Errorf("failed to parse profile data: %w", err)
+	}
+
+	// Extract rating_stats field
+	ratingStatsData, exists := profileData["rating_stats"]
+	if !exists {
+		return nil, fmt.Errorf("no rating statistics available for club %s", clubID)
+	}
+
+	// Convert to map for easier field access
+	statsMap, ok := ratingStatsData.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid rating statistics format for club %s", clubID)
+	}
+
+	// Map API field names to MCP expected field names
+	stats := &ClubRatingStats{
+		RatingDistribution: make(map[string]int),
+	}
+
+	// Map average_dwz -> average_rating
+	if avgDwz, exists := statsMap["average_dwz"]; exists {
+		if avgFloat, ok := avgDwz.(float64); ok {
+			stats.AverageRating = avgFloat
+		}
+	}
+
+	// Map median_dwz -> median_rating  
+	if medianDwz, exists := statsMap["median_dwz"]; exists {
+		if medianFloat, ok := medianDwz.(float64); ok {
+			stats.MedianRating = medianFloat
+		}
+	}
+
+	// Map highest_dwz -> highest_rating
+	if highestDwz, exists := statsMap["highest_dwz"]; exists {
+		if highestFloat, ok := highestDwz.(float64); ok {
+			stats.HighestRating = int(highestFloat)
+		}
+	}
+
+	// Map lowest_dwz -> lowest_rating
+	if lowestDwz, exists := statsMap["lowest_dwz"]; exists {
+		if lowestFloat, ok := lowestDwz.(float64); ok {
+			stats.LowestRating = int(lowestFloat)
+		}
+	}
+
+	// Copy rating distribution as-is
+	if ratingDist, exists := statsMap["rating_distribution"]; exists {
+		if distMap, ok := ratingDist.(map[string]interface{}); ok {
+			for category, count := range distMap {
+				if countFloat, ok := count.(float64); ok {
+					stats.RatingDistribution[category] = int(countFloat)
+				}
+			}
+		}
+	}
+
+	c.logger.WithFields(logrus.Fields{
+		"club_id": clubID,
+		"average_rating": stats.AverageRating,
+		"median_rating": stats.MedianRating,
+	}).Debug("Successfully extracted club rating statistics from profile endpoint")
+
+	return stats, nil
 }
 
 // SearchTournaments searches for tournaments with date and status filtering

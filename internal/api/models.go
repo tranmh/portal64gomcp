@@ -119,10 +119,11 @@ type ClubTeam struct {
 
 // ClubRatingStats represents club rating statistics
 type ClubRatingStats struct {
-	AverageRating     float64 `json:"average_rating"`
-	MedianRating      float64 `json:"median_rating"`
-	HighestRating     int     `json:"highest_rating"`
-	LowestRating      int     `json:"lowest_rating"`
+	AverageRating     float64 `json:"average_dwz"`      // API returns average_dwz
+	MedianRating      float64 `json:"median_dwz"`       // API returns median_dwz
+	HighestRating     int     `json:"highest_dwz"`      // API returns highest_dwz
+	LowestRating      int     `json:"lowest_dwz"`       // API returns lowest_dwz
+	PlayersWithDWZ    int     `json:"players_with_dwz"` // API returns players_with_dwz
 	RatingDistribution map[string]int `json:"rating_distribution"`
 }
 
