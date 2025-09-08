@@ -13,6 +13,7 @@ import (
 func (s *Server) registerTools() {
 	// Search tools
 	s.tools["search_players"] = s.handleSearchPlayers
+	s.tools["get_player_by_pkz"] = s.handleGetPlayerByPKZ
 	s.tools["search_clubs"] = s.handleSearchClubs
 	s.tools["search_tournaments"] = s.handleSearchTournaments
 	s.tools["get_recent_tournaments"] = s.handleGetRecentTournaments
@@ -40,13 +41,13 @@ func (s *Server) GetToolDefinition(name string) Tool {
 	definitions := map[string]Tool{
 		"search_players": {
 			Name:        "search_players",
-			Description: "Search for players with filtering and pagination support",
+			Description: "Search for players with filtering and pagination support. Players have both ID (C0101-123 format) and PKZ (unique across club changes) identifiers.",
 			InputSchema: ToolSchema{
 				Type: "object",
 				Properties: map[string]interface{}{
 					"query": map[string]interface{}{
 						"type":        "string",
-						"description": "Search query for player name",
+						"description": "Search query for player name, ID, or PKZ",
 					},
 					"limit": map[string]interface{}{
 						"type":        "integer",
@@ -131,6 +132,20 @@ func (s *Server) GetToolDefinition(name string) Tool {
 					},
 				},
 				Required: []string{"player_id"},
+			},
+		},
+		"get_player_by_pkz": {
+			Name:        "get_player_by_pkz",
+			Description: "Get player by PKZ (unique player identifier that persists across club changes)",
+			InputSchema: ToolSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"pkz": map[string]interface{}{
+						"type":        "string",
+						"description": "Player PKZ (unique identifier)",
+					},
+				},
+				Required: []string{"pkz"},
 			},
 		},
 		"get_player_rating_history": {
@@ -500,6 +515,46 @@ func (s *Server) handleGetPlayerProfile(ctx context.Context, args map[string]int
 		}},
 	}, nil
 }
+
+// handleGetPlayerByPKZ handles player lookup by PKZ requests
+func (s *Server) handleGetPlayerByPKZ(ctx context.Context, args map[string]interface{}) (*CallToolResponse, error) {
+	pkz, ok := args["pkz"].(string)
+	if !ok || pkz == "" {
+		return &CallToolResponse{
+			Content: []ToolContent{{
+				Type: "text",
+				Text: "Error: pkz is required",
+			}},
+			IsError: true,
+		}, nil
+	}
+
+	// Search for player by PKZ using the search API
+	searchParams := api.SearchParams{
+		Query: pkz,
+		Limit: 1,
+	}
+	
+	result, err := s.apiClient.SearchPlayers(ctx, searchParams)
+	if err != nil {
+		return &CallToolResponse{
+			Content: []ToolContent{{
+				Type: "text",
+				Text: fmt.Sprintf("Error searching player by PKZ: %v", err),
+			}},
+			IsError: true,
+		}, nil
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return &CallToolResponse{
+		Content: []ToolContent{{
+			Type: "text",
+			Text: string(data),
+		}},
+	}, nil
+}
+
 // handleSearchTournaments handles tournament search requests
 func (s *Server) handleSearchTournaments(ctx context.Context, args map[string]interface{}) (*CallToolResponse, error) {
 	params := api.SearchParams{}

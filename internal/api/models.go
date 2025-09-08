@@ -5,6 +5,33 @@ import (
 	"time"
 )
 
+// Gender conversion functions for API compatibility
+func ConvertGenderFromAPI(apiGender string) string {
+	switch apiGender {
+	case "m":
+		return "male"
+	case "w":
+		return "female"
+	case "d":
+		return "divers"
+	default:
+		return apiGender // fallback to original value
+	}
+}
+
+func ConvertGenderToAPI(displayGender string) string {
+	switch displayGender {
+	case "male":
+		return "m"
+	case "female":
+		return "w"
+	case "divers":
+		return "d"
+	default:
+		return displayGender // fallback to original value
+	}
+}
+
 // CustomDate handles date parsing for API responses that return dates in YYYY-MM-DD format
 type CustomDate struct {
 	time.Time
@@ -54,6 +81,7 @@ type PaginationMetadata struct {
 // PlayerResponse represents a player in the system
 type PlayerResponse struct {
 	ID          string `json:"id"`           // Format: C0101-123
+	PKZ         string `json:"pkz"`          // Unique player identifier, persists across club changes
 	Name        string `json:"name"`
 	Firstname   string `json:"firstname"`
 	ClubID      string `json:"club_id"`      // Format: C0101
@@ -61,10 +89,46 @@ type PlayerResponse struct {
 	CurrentDWZ  int    `json:"current_dwz"`
 	DWZIndex    int    `json:"dwz_index"`
 	BirthYear   int    `json:"birth_year"`
-	Gender      string `json:"gender"`
+	Gender      string `json:"gender"`       // API returns m/w/d, we convert to male/female/divers for display
 	Nation      string `json:"nation"`
 	Status      string `json:"status"`
 	FideID      int    `json:"fide_id"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler for PlayerResponse to handle gender conversion
+func (p *PlayerResponse) UnmarshalJSON(data []byte) error {
+	// Define a type alias to avoid infinite recursion
+	type Alias PlayerResponse
+	aux := &struct {
+		*Alias
+		Gender string `json:"gender"`
+	}{
+		Alias: (*Alias)(p),
+	}
+
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+
+	// Convert gender from API format (m/w/d) to display format (male/female/divers)
+	p.Gender = ConvertGenderFromAPI(aux.Gender)
+	
+	return nil
+}
+
+// MarshalJSON implements json.Marshaler for PlayerResponse to handle gender conversion
+func (p PlayerResponse) MarshalJSON() ([]byte, error) {
+	// Define a type alias to avoid infinite recursion
+	type Alias PlayerResponse
+	aux := struct {
+		Alias
+		Gender string `json:"gender"`
+	}{
+		Alias:  (Alias)(p),
+		Gender: ConvertGenderToAPI(p.Gender), // Convert back to API format when serializing
+	}
+
+	return json.Marshal(aux)
 }
 
 // ClubResponse represents a chess club

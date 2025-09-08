@@ -20,12 +20,13 @@ type HealthResponse struct {
 
 type Player struct {
 	ID          string `json:"id"`
+	PKZ         string `json:"pkz"`          // Unique player identifier
 	Name        string `json:"name"`
 	Firstname   string `json:"firstname"`
 	Club        string `json:"club"`
 	ClubID      string `json:"club_id"`
 	BirthYear   int    `json:"birth_year"`
-	Gender      string `json:"gender"`
+	Gender      string `json:"gender"`       // API returns m/w/d format
 	Nation      string `json:"nation"`
 	FideID      int    `json:"fide_id"`
 	CurrentDWZ  int    `json:"current_dwz"`
@@ -76,12 +77,20 @@ type MetaData struct {
 // Mock data
 var mockPlayers = []Player{
 	{
-		ID: "C0327-297", Name: "Tran", Firstname: "Minh Cuong", Club: "SC Altbach 1926 e.V.", ClubID: "C0327",
-		BirthYear: 1990, Gender: "male", Nation: "GER", FideID: 24663832, CurrentDWZ: 1643, DWZIndex: 60, Status: "active",
+		ID: "C0327-297", PKZ: "PKZ123456789", Name: "Tran", Firstname: "Minh Cuong", Club: "SC Altbach 1926 e.V.", ClubID: "C0327",
+		BirthYear: 1990, Gender: "m", Nation: "GER", FideID: 24663832, CurrentDWZ: 1643, DWZIndex: 60, Status: "active",
 	},
 	{
-		ID: "C0505-1043", Name: "Aab", Firstname: "Manfred", Club: "SC Böblingen 1975 e.V.", ClubID: "C0505",
-		BirthYear: 1963, Gender: "male", Nation: "GER", FideID: 24663833, CurrentDWZ: 1643, DWZIndex: 60, Status: "active",
+		ID: "C0505-1043", PKZ: "PKZ987654321", Name: "Aab", Firstname: "Manfred", Club: "SC Böblingen 1975 e.V.", ClubID: "C0505",
+		BirthYear: 1963, Gender: "m", Nation: "GER", FideID: 24663833, CurrentDWZ: 1643, DWZIndex: 60, Status: "active",
+	},
+	{
+		ID: "C0505-1044", PKZ: "PKZ555666777", Name: "Mueller", Firstname: "Anna", Club: "SC Böblingen 1975 e.V.", ClubID: "C0505",
+		BirthYear: 1985, Gender: "w", Nation: "GER", FideID: 24663834, CurrentDWZ: 1520, DWZIndex: 45, Status: "active",
+	},
+	{
+		ID: "C0327-298", PKZ: "PKZ111222333", Name: "Schmidt", Firstname: "Alex", Club: "SC Altbach 1926 e.V.", ClubID: "C0327",
+		BirthYear: 1992, Gender: "d", Nation: "GER", FideID: 24663835, CurrentDWZ: 1750, DWZIndex: 35, Status: "active",
 	},
 }
 
@@ -196,7 +205,10 @@ func handlePlayers(w http.ResponseWriter, r *http.Request) {
 
 	var filteredPlayers []Player
 	for _, player := range mockPlayers {
-		if query == "" || strings.Contains(strings.ToLower(player.Name+" "+player.Firstname), strings.ToLower(query)) {
+		if query == "" || 
+		   strings.Contains(strings.ToLower(player.Name+" "+player.Firstname), strings.ToLower(query)) ||
+		   strings.Contains(strings.ToLower(player.ID), strings.ToLower(query)) ||
+		   strings.Contains(strings.ToLower(player.PKZ), strings.ToLower(query)) {
 			filteredPlayers = append(filteredPlayers, player)
 		}
 	}
@@ -585,12 +597,16 @@ func handleClubPlayers(w http.ResponseWriter, r *http.Request) {
 	// Mock club players data
 	mockClubPlayers := []Player{
 		{
-			ID: "C0327-297", Name: "Tran", Firstname: "Minh Cuong", Club: "SC Altbach 1926 e.V.", ClubID: clubID,
-			BirthYear: 1990, Gender: "M", Nation: "GER", FideID: 0, CurrentDWZ: 1850, DWZIndex: 25, Status: "active",
+			ID: "C0327-297", PKZ: "PKZ123456789", Name: "Tran", Firstname: "Minh Cuong", Club: "SC Altbach 1926 e.V.", ClubID: clubID,
+			BirthYear: 1990, Gender: "m", Nation: "GER", FideID: 0, CurrentDWZ: 1850, DWZIndex: 25, Status: "active",
 		},
 		{
-			ID: "C0327-298", Name: "Schmidt", Firstname: "Hans", Club: "SC Altbach 1926 e.V.", ClubID: clubID,
-			BirthYear: 1985, Gender: "M", Nation: "GER", FideID: 0, CurrentDWZ: 1720, DWZIndex: 18, Status: "active",
+			ID: "C0327-298", PKZ: "PKZ111222333", Name: "Schmidt", Firstname: "Alex", Club: "SC Altbach 1926 e.V.", ClubID: clubID,
+			BirthYear: 1985, Gender: "d", Nation: "GER", FideID: 0, CurrentDWZ: 1720, DWZIndex: 18, Status: "active",
+		},
+		{
+			ID: "C0327-299", PKZ: "PKZ444555666", Name: "Mueller", Firstname: "Lisa", Club: "SC Altbach 1926 e.V.", ClubID: clubID,
+			BirthYear: 1988, Gender: "w", Nation: "GER", FideID: 0, CurrentDWZ: 1680, DWZIndex: 22, Status: "active",
 		},
 	}
 
